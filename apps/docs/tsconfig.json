@@ -2,17 +2,23 @@
   "extends": "tsconfig/nextjs.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@/*": ["./*"],
+      "collections/*": ["./.source/*"]
+    },
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.mts",
+    "content/**/*.mdx",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "next.config.js",
-    "tailwind.config.js"
+    ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "eslint.config.mjs"]
+  "exclude": [
+    "node_modules",
+    "eslint.config.mjs",
+    "components/registry/build-graph.ts",
+    "content/docs/(framework)/integrations/webmcp.tsx"
+  ]
 }

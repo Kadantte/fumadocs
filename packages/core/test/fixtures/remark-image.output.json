@@ -26,19 +26,38 @@
       "type": "mdxjsEsm",
     },
     {
+      "data": {
+        "estree": {
+          "body": [
+            {
+              "source": {
+                "type": "Literal",
+                "value": "./remark-image.svg",
+              },
+              "specifiers": [
+                {
+                  "local": {
+                    "name": "__img1",
+                    "type": "Identifier",
+                  },
+                  "type": "ImportDefaultSpecifier",
+                },
+              ],
+              "type": "ImportDeclaration",
+            },
+          ],
+        },
+      },
+      "type": "mdxjsEsm",
+    },
+    {
       "children": [
         {
-          "alt": "Test",
           "attributes": [
             {
               "name": "alt",
               "type": "mdxJsxAttribute",
               "value": "Test",
-            },
-            {
-              "name": "placeholder",
-              "type": "mdxJsxAttribute",
-              "value": "blur",
             },
             {
               "name": "src",
@@ -55,6 +74,8 @@
                         "type": "ExpressionStatement",
                       },
                     ],
+                    "sourceType": "script",
+                    "type": "Program",
                   },
                 },
                 "type": "mdxJsxAttributeValueExpression",
@@ -62,22 +83,9 @@
               },
             },
           ],
+          "children": [],
           "name": "img",
-          "position": {
-            "end": {
-              "column": 20,
-              "line": 1,
-              "offset": 19,
-            },
-            "start": {
-              "column": 1,
-              "line": 1,
-              "offset": 0,
-            },
-          },
-          "title": null,
           "type": "mdxJsxFlowElement",
-          "url": "./test.png",
         },
       ],
       "position": {
@@ -98,34 +106,18 @@
       "children": [
         {
           "alt": "External",
-          "attributes": [
-            {
-              "name": "alt",
-              "type": "mdxJsxAttribute",
-              "value": "External",
+          "data": {
+            "hProperties": {
+              "height": "630",
+              "src": "https://fumadocs.dev/banner.png",
+              "width": "1200",
             },
-            {
-              "name": "src",
-              "type": "mdxJsxAttribute",
-              "value": "https://picsum.photos/id/237/200/300",
-            },
-            {
-              "name": "width",
-              "type": "mdxJsxAttribute",
-              "value": "200",
-            },
-            {
-              "name": "height",
-              "type": "mdxJsxAttribute",
-              "value": "300",
-            },
-          ],
-          "name": "img",
+          },
           "position": {
             "end": {
-              "column": 50,
+              "column": 45,
               "line": 3,
-              "offset": 70,
+              "offset": 65,
             },
             "start": {
               "column": 1,
@@ -134,15 +126,15 @@
             },
           },
           "title": null,
-          "type": "mdxJsxFlowElement",
-          "url": "https://picsum.photos/id/237/200/300",
+          "type": "image",
+          "url": "https://fumadocs.dev/banner.png",
         },
       ],
       "position": {
         "end": {
-          "column": 50,
+          "column": 45,
           "line": 3,
-          "offset": 70,
+          "offset": 65,
         },
         "start": {
           "column": 1,
@@ -152,12 +144,64 @@
       },
       "type": "paragraph",
     },
+    {
+      "children": [
+        {
+          "attributes": [
+            {
+              "name": "alt",
+              "type": "mdxJsxAttribute",
+              "value": "Inline",
+            },
+            {
+              "name": "src",
+              "type": "mdxJsxAttribute",
+              "value": {
+                "data": {
+                  "estree": {
+                    "body": [
+                      {
+                        "expression": {
+                          "name": "__img1",
+                          "type": "Identifier",
+                        },
+                        "type": "ExpressionStatement",
+                      },
+                    ],
+                    "sourceType": "script",
+                    "type": "Program",
+                  },
+                },
+                "type": "mdxJsxAttributeValueExpression",
+                "value": "__img1",
+              },
+            },
+          ],
+          "children": [],
+          "name": "img",
+          "type": "mdxJsxFlowElement",
+        },
+      ],
+      "position": {
+        "end": {
+          "column": 30,
+          "line": 5,
+          "offset": 96,
+        },
+        "start": {
+          "column": 1,
+          "line": 5,
+          "offset": 67,
+        },
+      },
+      "type": "paragraph",
+    },
   ],
   "position": {
     "end": {
       "column": 1,
-      "line": 4,
-      "offset": 71,
+      "line": 6,
+      "offset": 97,
     },
     "start": {
       "column": 1,

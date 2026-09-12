@@ -1,8 +1,14 @@
 ![banner](./apps/docs/public/banner.png)
 
-The framework for building documentation websites in Next.js.
+The framework for building documentation websites in React.js frameworks and Astro.
 
-📘 Learn More: [Documentation](https://fumadocs.vercel.app).
+**Officially Supported:**
+
+- Next.js
+- Astro (with React)
+- Vite: Tanstack Start, Waku, React Router
+
+📘 Learn More: [Documentation](https://fumadocs.dev).
 
 ## Compatibility
 

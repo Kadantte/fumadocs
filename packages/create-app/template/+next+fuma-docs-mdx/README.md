@@ -18,7 +18,7 @@ Open http://localhost:3000 with your browser to see the result.
 In the project, you can see:
 
 - `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
-- `app/layout.config.tsx`: Shared options for layouts, optional but preferred to keep.
+- `lib/layout.shared.tsx`: Shared options for layouts, optional but preferred to keep.
 
 | Route                     | Description                                            |
 | ------------------------- | ------------------------------------------------------ |
@@ -28,7 +28,7 @@ In the project, you can see:
 
 ### Fumadocs MDX
 
-A `source.config.ts` config file has been included, you can customise different options like frontmatter schema.
+Collections are defined with the [Macro API](https://fumadocs.dev/docs/mdx/macro) in `lib/source.ts`.
 
 Read the [Introduction](https://fumadocs.dev/docs/mdx) for further details.
 
@@ -40,4 +40,4 @@ resources:
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js
   features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [Fumadocs](https://fumadocs.vercel.app) - learn about Fumadocs
+- [Fumadocs](https://fumadocs.dev) - learn about Fumadocs

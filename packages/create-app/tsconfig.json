@@ -1,16 +1,14 @@
 {
   "extends": "tsconfig/base.json",
   "compilerOptions": {
-    "module": "ESNext",
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "noEmit": true
   },
-  "exclude": [
-    "node_modules",
-    "template",
-    "dist",
-    "scripts",
-    "eslint.config.mjs"
-  ]
+  "include": ["scripts", "src", "test"],
+  "exclude": ["node_modules", "template", "dist", "eslint.config.mjs"]
 }

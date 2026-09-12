@@ -1,149 +1,256 @@
-import { type HTMLAttributes, type ReactNode } from 'react';
-import { Badge } from '@/ui/components/method-label';
-import type { PropertyProps, RootProps } from '@/render/renderer';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from 'fumadocs-ui/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
-import { ApiProvider } from '@/ui/lazy';
-import { cn } from 'fumadocs-ui/utils/cn';
-import { buttonVariants } from 'fumadocs-ui/components/ui/button';
-import type { MediaAdapter } from '@/media/adapter';
+'use client';
+import type {
+  Awaitable,
+  Document,
+  HttpMethods,
+  OperationObject,
+  PathItemObject,
+  RenderContext,
+} from '@/types';
+import type { MediaAdapter } from '@/requests/media/adapter';
+import type { ComponentProps, FC, HTMLAttributes, ReactNode } from 'react';
+import { defaultShikiFactory } from 'fumadocs-core/highlight/shiki/full';
+import type { CodeUsageGeneratorRegistry, InlineCodeUsageGenerator } from '@/requests/generators';
+import type { ShikiFactory } from 'fumadocs-core/highlight/shiki';
+import type { CodeToHastOptionsCommon, CodeOptionsThemes, BundledTheme } from 'shiki';
+import type { ExampleRequestItem } from '../utils/get-example-requests';
+import type { RequestTabsRenderOptions } from './operation/request-tabs';
+import type { ResponseTabsRenderOptions } from './operation/response-tabs';
+import type { PlaygroundClientOptions } from '@/playground/client';
+import type { GeneratedPageProps, WebhookItem, OperationItem } from '@/utils/pages/builder';
+import type { ParsedSchema } from '@/utils/schema';
+import type { SchemaUIOptions } from '@fumadocs/api-docs/components/schema';
+import { createOpenAPIPageBase } from './base';
 
-export function Root({
-  children,
-  className,
-  ctx,
-  ...props
-}: RootProps & HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('flex flex-col gap-24 text-sm', className)} {...props}>
-      <ApiProvider
-        mediaAdapters={
-          Object.fromEntries(
-            Object.entries(ctx.mediaAdapters).filter(
-              ([_, v]) => typeof v !== 'boolean',
-            ),
-          ) as Record<string, MediaAdapter>
-        }
-        servers={ctx.servers}
-        shikiOptions={ctx.shikiOptions}
-        defaultBaseUrl={ctx.baseUrl}
-      >
-        {children}
-      </ApiProvider>
-    </div>
-  );
-}
+export { useRenderContext, useServerContext } from '@/ui/contexts/api';
+export { useOperationContext } from '@/ui/operation/context';
 
-export function APIInfo({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('min-w-0 flex-1', className)} {...props}>
-      {props.children}
-    </div>
-  );
-}
-
-export function API({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      {...props}
-      className={cn(
-        'flex flex-col gap-x-6 gap-y-4 xl:flex-row xl:items-start',
-        props.className,
-      )}
-      style={
-        {
-          '--fd-api-info-top':
-            'calc(12px + var(--fd-nav-height) + var(--fd-banner-height) + var(--fd-tocnav-height, 0px))',
-          ...props.style,
-        } as object
-      }
-    >
-      {children}
-    </div>
-  );
-}
-
-export function Property({
-  name,
-  type,
-  required,
-  deprecated,
-  nested,
-  ...props
-}: PropertyProps) {
-  return (
-    <div
-      className={cn(
-        'text-sm border-t',
-        nested
-          ? 'p-3 border-x bg-fd-card last:rounded-b-xl first:rounded-tr-xl last:border-b'
-          : 'py-4 first:border-t-0',
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2 not-prose">
-        <span className="font-medium font-mono text-fd-primary">
-          {name}
-          {required === false && (
-            <span className="text-fd-muted-foreground">?</span>
-          )}
-        </span>
-        <span className="me-auto text-xs font-mono text-fd-muted-foreground">
-          {type}
-        </span>
-        {deprecated && (
-          <Badge color="yellow" className="text-xs">
-            Deprecated
-          </Badge>
-        )}
-      </div>
-      <div className="prose-no-margin pt-2.5 empty:hidden">
-        {props.children}
-      </div>
-    </div>
-  );
-}
-
-export function APIExample(props: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      {...props}
-      className={cn(
-        'prose-no-margin md:sticky md:top-(--fd-api-info-top) xl:w-[400px]',
-        props.className,
-      )}
-    >
-      {props.children}
-    </div>
-  );
-}
-
-export function ObjectCollapsible(props: {
+export interface GenerateTypeScriptDefinitionsContext {
   name: string;
-  children: ReactNode;
-}) {
-  return (
-    <Collapsible {...props}>
-      <CollapsibleTrigger
-        className={cn(
-          buttonVariants({ color: 'secondary', size: 'sm' }),
-          'group px-3 py-2 data-[state=open]:rounded-b-none',
-        )}
-      >
-        {props.name}
-        <ChevronDown className="size-4 text-fd-muted-foreground group-data-[state=open]:rotate-180" />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="-mt-px *:bg-fd-card">
-        {props.children}
-      </CollapsibleContent>
-    </Collapsible>
-  );
+  readOnly: boolean;
+  writeOnly: boolean;
+  ctx: RenderContext;
 }
 
-export { APIPage, type ApiPageProps } from '@/render/api-page';
+export interface APIPlaygroundProps {
+  path: string;
+  method: HttpMethods;
+  operation: OperationObject;
+  pathItem: PathItemObject;
+  ctx: RenderContext;
+}
+
+export interface CreateOpenAPIPageOptions {
+  /**
+   * Generate TypeScript definitions from JSON schema.
+   *
+   * Pass `false` to disable it.
+   */
+  generateTypeScriptDefinitions?:
+    | ((
+        schema: ParsedSchema,
+        ctx: GenerateTypeScriptDefinitionsContext,
+      ) => Awaitable<string | undefined>)
+    | false;
+
+  /**
+   * Generate example code usage for all endpoints.
+   */
+  codeUsages?: CodeUsageGeneratorRegistry;
+
+  /**
+   * Generate example code usage for each endpoint.
+   */
+  generateCodeSamples?: (options: {
+    path: string;
+    operation: OperationObject;
+    method: HttpMethods;
+    pathItem: PathItemObject;
+  }) => InlineCodeUsageGenerator[];
+
+  shiki?: ShikiFactory;
+  shikiOptions?: Omit<CodeToHastOptionsCommon, 'lang'> & CodeOptionsThemes<BundledTheme>;
+
+  /**
+   * Show full response schema instead of only example response & Typescript definitions.
+   *
+   * @default true
+   */
+  showResponseSchema?: boolean;
+
+  /**
+   * Support other media types.
+   */
+  mediaAdapters?: Record<string, MediaAdapter>;
+
+  /**
+   * Customize page content.
+   */
+  content?: {
+    renderResponseTabs?: (options: ResponseTabsRenderOptions, ctx: RenderContext) => ReactNode;
+
+    renderRequestTabs?: (options: RequestTabsRenderOptions, ctx: RenderContext) => ReactNode;
+
+    renderAPIExampleLayout?: (
+      slots: {
+        selector: ReactNode;
+        usageTabs: ReactNode;
+        responseTabs: ReactNode;
+      },
+      ctx: RenderContext,
+    ) => ReactNode;
+
+    /**
+     * @param generators - codegens for API example usages
+     */
+    renderAPIExampleUsageTabs?: (
+      generators: CodeUsageGeneratorRegistry,
+      ctx: RenderContext,
+    ) => ReactNode;
+
+    /**
+     * renderer of the entire page's layout (containing all operations & webhooks UI)
+     */
+    renderPageLayout?: (
+      slots: {
+        operations?: {
+          item: OperationItem;
+          children: ReactNode;
+        }[];
+        webhooks?: {
+          item: WebhookItem;
+          children: ReactNode;
+        }[];
+      },
+      ctx: RenderContext,
+    ) => ReactNode;
+
+    renderOperationLayout?: (
+      slots: {
+        header: ReactNode;
+        description: ReactNode;
+        apiExample: ReactNode;
+        apiPlayground: ReactNode;
+
+        authSchemes: ReactNode;
+        parameters: ReactNode;
+        body: ReactNode;
+        responses: ReactNode;
+        callbacks: ReactNode;
+      },
+      context: {
+        path: string;
+        operation: OperationObject;
+        method: HttpMethods;
+        pathItem: PathItemObject;
+        ctx: RenderContext;
+      },
+    ) => ReactNode;
+
+    renderWebhookLayout?: (slots: {
+      header: ReactNode;
+      description: ReactNode;
+      authSchemes: ReactNode;
+      parameters: ReactNode;
+      body: ReactNode;
+      requests: ReactNode;
+      responses: ReactNode;
+      callbacks: ReactNode;
+    }) => ReactNode;
+  };
+
+  /**
+   * Info UI for JSON schemas.
+   */
+  schemaUI?: {
+    render?: (options: SchemaUIOptions, ctx: RenderContext) => ReactNode;
+
+    /**
+     * Show examples under the generated content of JSON schemas.
+     *
+     * @defaultValue false
+     */
+    showExample?: boolean;
+  };
+
+  /**
+   * Customize API playground.
+   */
+  playground?: PlaygroundClientOptions & {
+    /**
+     * @defaultValue true
+     */
+    enabled?: boolean;
+
+    /**
+     * render a page-level provider (useful for handling auth)
+     */
+    provider?: (props: { children: ReactNode }) => ReactNode;
+    /**
+     * replace the renderer
+     */
+    render?: (props: APIPlaygroundProps) => ReactNode;
+  };
+
+  operation?: {
+    APIExampleSelector?: FC<{
+      items: ExampleRequestItem[];
+
+      value: string | undefined;
+      onValueChange: (id: string) => void;
+    }>;
+  };
+
+  components?: {
+    Heading?: FC<ComponentProps<'h1'> & { id: string; depth: number }>;
+    CodeBlock?: FC<{ lang: string; code: string }>;
+    Markdown?: FC<{ md: string }>;
+  };
+
+  /**
+   * Set a prefix for `localStorage` keys.
+   *
+   * Useful when using multiple OpenAPI instances to prevent state conflicts.
+   *
+   * @defaultValue `fumadocs-openapi-`
+   */
+  storageKeyPrefix?: string;
+
+  /** @deprecated use `components.Heading` instead */
+  renderHeading?: (props: HTMLAttributes<HTMLHeadingElement>, depth: number) => ReactNode;
+  /** @deprecated use `components.CodeBlock` instead */
+  renderCodeBlock?: (props: { lang: string; code: string }) => ReactNode;
+  /** @deprecated use `components.Markdown` instead */
+  renderMarkdown?: (md: string) => ReactNode;
+}
+
+export type OpenAPIPageProps = OpenAPIPageProps_Spec | OpenAPIPageProps_Preloaded;
+
+export type OpenAPIPageProps_Spec = Omit<GeneratedPageProps, 'document'> & {
+  payload: {
+    bundled: Document;
+    proxyUrl?: string;
+  };
+};
+
+export type OpenAPIPageProps_Preloaded = GeneratedPageProps & {
+  preloaded: {
+    docs: Record<string, Document>;
+    proxyUrl?: string;
+  };
+};
+
+/**
+ * Create `<OpenAPIPage />` (a client component).
+ */
+export function createOpenAPIPage(options: CreateOpenAPIPageOptions = {}): FC<OpenAPIPageProps> {
+  return createOpenAPIPageBase({
+    ...options,
+    shiki: options.shiki ?? defaultShikiFactory,
+  });
+}
+
+/** @deprecated Use `OpenAPIPageProps` instead */
+export type ApiPageProps = OpenAPIPageProps;
+// kept for backward compatibility
+export type { OperationItem, WebhookItem } from '@/utils/pages/builder';

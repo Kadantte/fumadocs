@@ -1,6 +1,6 @@
 'use client';
 import type { ComponentProps, FC, ReactNode } from 'react';
-import React from 'react';
+import { createContext, use, useMemo } from 'react';
 import type { StaticImport } from 'next/dist/shared/lib/get-img-props';
 
 export interface ImageProps extends Omit<ComponentProps<'img'>, 'src'> {
@@ -22,8 +22,8 @@ interface LinkProps extends ComponentProps<'a'> {
 }
 
 export interface Router {
-  push: (url: string) => void;
-  refresh: () => void;
+  push: (url: string) => void | Promise<void>;
+  refresh: () => void | Promise<void>;
 }
 
 export interface Framework {
@@ -41,12 +41,10 @@ export interface Framework {
 }
 
 const notImplemented = () => {
-  throw new Error(
-    'You need to wrap your application inside `FrameworkProvider`.',
-  );
+  throw new Error('You need to wrap your application inside `FrameworkProvider`.');
 };
 
-const FrameworkContext = createContext<Framework>('FrameworkContext', {
+const FrameworkContext = createContext<Framework>({
   useParams: notImplemented,
   useRouter: notImplemented,
   usePathname: notImplemented,
@@ -60,7 +58,7 @@ export function FrameworkProvider({
   Image,
   children,
 }: Framework & { children: ReactNode }) {
-  const framework = React.useMemo(
+  const framework = useMemo(
     () => ({
       usePathname,
       useRouter,
@@ -71,37 +69,28 @@ export function FrameworkProvider({
     [Link, usePathname, useRouter, useParams, Image],
   );
 
-  return (
-    <FrameworkContext.Provider value={framework}>
-      {children}
-    </FrameworkContext.Provider>
-  );
+  return <FrameworkContext value={framework}>{children}</FrameworkContext>;
 }
 
 export function usePathname() {
-  return FrameworkContext.use().usePathname();
+  return use(FrameworkContext).usePathname();
 }
 
 export function useRouter() {
-  return FrameworkContext.use().useRouter();
+  return use(FrameworkContext).useRouter();
 }
 
 export function useParams() {
-  return FrameworkContext.use().useParams();
+  return use(FrameworkContext).useParams();
 }
 
 export function Image(props: ImageProps) {
-  const { Image } = FrameworkContext.use();
+  const { Image } = use(FrameworkContext);
   if (!Image) {
     const { src, alt, priority, ...rest } = props;
 
     return (
-      <img
-        alt={alt}
-        src={src as string}
-        fetchPriority={priority ? 'high' : 'auto'}
-        {...rest}
-      />
+      <img alt={alt} src={src as string} fetchPriority={priority ? 'high' : 'auto'} {...rest} />
     );
   }
 
@@ -109,34 +98,11 @@ export function Image(props: ImageProps) {
 }
 
 export function Link(props: LinkProps) {
-  const { Link } = FrameworkContext.use();
+  const { Link } = use(FrameworkContext);
   if (!Link) {
     const { href, prefetch: _, ...rest } = props;
     return <a href={href} {...rest} />;
   }
 
   return <Link {...props} />;
-}
-
-export function createContext<T>(name: string, v?: T) {
-  const Context = React.createContext(v);
-
-  return {
-    Provider: (props: { value: T; children: ReactNode }) => {
-      return (
-        <Context.Provider value={props.value}>
-          {props.children}
-        </Context.Provider>
-      );
-    },
-    use: (errorMessage?: string): Exclude<T, undefined | null> => {
-      const value = React.useContext(Context);
-
-      if (!value)
-        throw new Error(
-          errorMessage ?? `Provider of ${name} is required but missing.`,
-        );
-      return value as Exclude<T, undefined | null>;
-    },
-  };
 }

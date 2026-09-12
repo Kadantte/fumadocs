@@ -4,11 +4,13 @@ description: Adding steps to your docs
 preview: steps
 ---
 
+<Installation name="steps" />
+
 ## Usage
 
 Put your steps into the `Steps` container.
 
-```mdx
+```mdx title="content.mdx"
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 
 <Steps>
@@ -25,8 +27,6 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 </Step>
 </Steps>
 ```
-
-> We recommend using Tailwind CSS utility classes directly on Tailwind CSS projects.
 
 ### Without imports
 
@@ -52,6 +52,6 @@ It supports adding step styles to only headings with arbitrary variants.
 
 ### Hello World
 
-You no longer need to use the step component anymore.
+Rendered without the `<Step />` component.
 
 </div>

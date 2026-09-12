@@ -1,23 +1,17 @@
 ---
-title: Async Mode
-description: Runtime compilation of content files.
+title: Lazy Loading
+description: Configure lazy loading on collection outputs.
 ---
 
 ## Introduction
 
 By default, all Markdown and MDX files need to be pre-compiled first. The same constraint also applies to the development server.
 
-This may result in longer dev server start times for large docs sites. You can enable Async Mode on `doc` collections to improve this.
+This may result in longer dev server start times for large docs sites. You can enable Async or Dynamic mode on doc collections to improve this.
 
-### Setup
+## Async Mode
 
-Install required dependencies.
-
-```package-install
-@fumadocs/mdx-remote shiki
-```
-
-Enable Async Mode.
+Async mode will generate collection outputs using async imports.
 
 ```ts tab="Docs Collection"
 import { defineDocs } from 'fumadocs-mdx/config';
@@ -25,6 +19,7 @@ import { defineDocs } from 'fumadocs-mdx/config';
 export const docs = defineDocs({
   dir: 'content/docs',
   docs: {
+    // [!code ++]
     async: true,
   },
 });
@@ -36,31 +31,73 @@ import { defineCollections } from 'fumadocs-mdx/config';
 export const doc = defineCollections({
   type: 'doc',
   dir: 'content/docs',
+  // [!code ++]
   async: true,
 });
 ```
 
-### Usage
+Depending on your bundler, this may reduce compilation time significantly on development server.
 
-Async Mode allows on-demand compilation of Markdown and MDX content by moving the compilation process from build time to Next.js runtime.
+<Callout title="For Next.js">
+  Turbopack doesn't support lazy bundling at the moment, async mode will only improve server
+  performance.
+</Callout>
 
-However, you need to invoke the `load()` async function to load and compile content.
+## Dynamic Mode
 
-For example:
+Dynamic mode works by performing **on-demand compilation**, then execute the output on runtime.
 
-```tsx title="lib/source.ts"
-import { loader } from 'fumadocs-core/source';
-import { docs } from '@/.source';
+It is recommended to install & externalize `shiki`:
 
-export const source = loader({
-  baseUrl: '/docs',
-  source: docs.toFumadocsSource(),
+```npm
+npm i shiki
+```
+
+Enable dynamic mode in collections like:
+
+```ts tab="Docs Collection"
+import { defineDocs } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    // [!code ++]
+    dynamic: true,
+  },
 });
 ```
 
+```ts tab="Doc Collection"
+import { defineCollections } from 'fumadocs-mdx/config';
+
+export const doc = defineCollections({
+  type: 'doc',
+  dir: 'content/docs',
+  // [!code ++]
+  dynamic: true,
+});
+```
+
+Then, follow [Dynamic Entry](/docs/mdx/entry/dynamic) to access the collection from dynamic entry instead.
+
+<Callout title="Constraints" type='warn'>
+
+Dynamic mode comes with some limitations on MDX features.
+
+- **No import/export allowed in MDX files.** For MDX components, pass them from the `components` prop instead.
+- **Images must be referenced with URL (e.g. `/images/test.png`).** Don't use **file paths** like `./image.png`. You should locate your images in the `public` folder and reference them with URLs.
+
+</Callout>
+
+## Usage
+
+Frontmatter properties are still available on `page` object, but you need to invoke the `load()` async function to load the compiled content (and its exports).
+
+For example:
+
 ```tsx title="page.tsx"
 import { source } from '@/lib/source';
-import { getMDXComponents } from '@/mdx-components';
+import { getMDXComponents } from '@/components/mdx';
 
 const page = source.getPage(['...']);
 
@@ -77,11 +114,4 @@ if (page) {
 }
 ```
 
-When using Async Mode, we highly recommend to use third-party services to implement search, which usually have better capability to handle massive amount of content to index.
-
-### Constraints
-
-It comes with some limitations on MDX features.
-
-- No import/export allowed in MDX files. For MDX components, pass them from the `components` prop instead.
-- Images must be referenced with URL (e.g. `/images/test.png`). Don't use **file paths** like `./image.png`. You should locate your images in the `public` folder and reference them with URLs.
+When using Async or Dynamic mode, we highly recommend to use third-party services to implement search, which usually have better capability to handle massive amount of content to index.

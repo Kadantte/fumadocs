@@ -1,58 +1,58 @@
 import { describe, expect, test } from 'vitest';
-import * as Python from '@/requests/python';
-import * as Go from '@/requests/go';
-import * as Curl from '@/requests/curl';
-import * as JS from '@/requests/javascript';
-import type { RequestData } from '@/requests/_shared';
-import { defaultAdapters } from '@/media/adapter';
+import type { RequestData } from '@/requests/types';
+import { defaultAdapters } from '@/requests/media/adapter';
+import { pathnameFromRequest } from '@/requests/generators';
+import { go } from '@/requests/generators/go';
+import { curl } from '@/requests/generators/curl';
+import { python } from '@/requests/generators/python';
+import { javascript } from '@/requests/generators/javascript';
+import { csharp } from '@/requests/generators/csharp';
 
 describe('Code Sample Generators', () => {
-  const url = 'http://localhost:8080/{test}';
-  const data: RequestData = {
+  const _data: RequestData = {
     path: {
-      test: 'hello_world',
+      test: { value: 'hello_world' },
     },
     body: {
       id: 'id',
     },
     bodyMediaType: 'application/json',
-    method: 'GET',
+    method: 'get',
     cookie: {
-      mode: 'light',
+      mode: { value: 'light' },
     },
     header: {
-      authorization: 'Bearer',
+      authorization: { value: 'Bearer' },
     },
     query: {
-      search: 'ai',
+      search: { values: ['ai'] },
     },
   };
+
+  const data = { ..._data, url: pathnameFromRequest('http://localhost:8080/{test}', _data) };
 
   const context = {
     mediaAdapters: defaultAdapters,
+    custom: null,
   };
 
   test(`Go`, async () => {
-    await expect(Go.generator(url, data, context)).toMatchFileSnapshot(
-      `./out/samples/1.go`,
-    );
+    await expect(go.generate(data, context)).toMatchFileSnapshot(`./out/samples/1.go`);
   });
 
   test(`Curl`, async () => {
-    await expect(Curl.generator(url, data, context)).toMatchFileSnapshot(
-      `./out/samples/1.bash`,
-    );
+    await expect(curl.generate(data, context)).toMatchFileSnapshot(`./out/samples/1.bash`);
   });
 
   test(`Python`, async () => {
-    await expect(Python.generator(url, data, context)).toMatchFileSnapshot(
-      `./out/samples/1.py`,
-    );
+    await expect(python.generate(data, context)).toMatchFileSnapshot(`./out/samples/1.py`);
   });
 
   test(`JavaScript`, async () => {
-    await expect(JS.generator(url, data, context)).toMatchFileSnapshot(
-      `./out/samples/1.js`,
-    );
+    await expect(javascript.generate(data, context)).toMatchFileSnapshot(`./out/samples/1.js`);
+  });
+
+  test(`C#`, async () => {
+    await expect(csharp.generate(data, context)).toMatchFileSnapshot(`./out/samples/1.cs`);
   });
 });

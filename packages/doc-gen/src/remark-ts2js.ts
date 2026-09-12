@@ -1,7 +1,10 @@
-import { type Transformer } from 'unified';
-import { type Code, Root } from 'mdast';
+import type { Transformer } from 'unified';
+import type { Root } from 'mdast';
 import { visit } from 'unist-util-visit';
-import { createElement, expressionToAttribute } from '@/utils';
+import {
+  generateCodeBlockTabs,
+  parseCodeBlockAttributes,
+} from 'fumadocs-core/mdx-plugins/codeblock-utils';
 
 export interface TypeScriptToJavaScriptOptions {
   /**
@@ -15,13 +18,12 @@ export interface TypeScriptToJavaScriptOptions {
       }
     | false;
 
+  defaultValue?: 'js' | 'ts';
+
   /**
    * Transform all TypeScript codeblocks by default, without a trigger
    */
   disableTrigger?: boolean;
-
-  Tabs?: string;
-  Tab?: string;
 }
 
 /**
@@ -40,95 +42,75 @@ export interface TypeScriptToJavaScriptOptions {
  */
 export function remarkTypeScriptToJavaScript({
   persist = false,
+  defaultValue = 'ts',
   disableTrigger = false,
-  Tab = 'Tab',
-  Tabs = 'Tabs',
 }: TypeScriptToJavaScriptOptions = {}): Transformer<Root> {
-  return async (tree, file) => {
-    const oxc = await import('oxc-transform');
+  return async (tree) => {
+    const [{ parse }, { strip }] = await Promise.all([
+      import('yuku-parser'),
+      import('yuku-codegen'),
+    ]);
+    const tasks: Promise<void>[] = [];
 
     visit(tree, 'code', (node) => {
-      if (node.lang !== 'ts' && node.lang !== 'tsx') return;
-      if (!disableTrigger && !node.meta?.includes('ts2js')) return;
+      const lang = node.lang;
+      if (lang !== 'ts' && lang !== 'tsx') return;
 
-      const result = oxc.transform(
-        `${file.path ?? 'test'}.${node.lang}`,
-        node.value,
-        {
-          sourcemap: false,
-          jsx: 'preserve',
-        },
-      );
+      const meta = parseCodeBlockAttributes(node.meta ?? '', ['ts2js']);
+      if (!disableTrigger && !('ts2js' in meta.attributes)) return;
 
-      const insert = createElement(
-        Tabs,
-        [
-          ...(typeof persist === 'object'
-            ? [
-                {
-                  type: 'mdxJsxAttribute',
-                  name: 'groupId',
-                  value: persist.id,
-                },
-                {
-                  type: 'mdxJsxAttribute',
-                  name: 'persist',
-                  value: null,
-                },
-              ]
-            : []),
-          expressionToAttribute('items', {
-            type: 'ArrayExpression',
-            elements: ['TypeScript', 'JavaScript'].map((name) => ({
-              type: 'Literal',
-              value: name,
-            })),
-          }),
-        ],
-        [
-          {
-            type: 'mdxJsxFlowElement',
-            name: Tab,
-            attributes: [
+      tasks.push(
+        (async () => {
+          const { program } = parse(node.value, { lang });
+          const result = strip(program);
+
+          const replacement = generateCodeBlockTabs({
+            persist,
+            defaultValue,
+            triggers: [
               {
-                type: 'mdxJsxAttribute',
-                name: 'value',
-                value: 'TypeScript',
+                value: 'ts',
+                children: [{ type: 'text', value: 'TypeScript' }],
+              },
+              {
+                value: 'js',
+                children: [{ type: 'text', value: 'JavaScript' }],
               },
             ],
-            children: [
+            tabs: [
               {
-                type: 'code',
-                lang: node.lang,
-                meta: node.meta,
-                value: node.value,
-              } satisfies Code,
-            ],
-          },
-          {
-            type: 'mdxJsxFlowElement',
-            name: Tab,
-            attributes: [
+                value: 'ts',
+                children: [
+                  {
+                    type: 'code',
+                    lang: node.lang,
+                    meta: meta.rest,
+                    value: node.value,
+                  },
+                ],
+              },
               {
-                type: 'mdxJsxAttribute',
-                name: 'value',
-                value: 'JavaScript',
+                value: 'js',
+                children: [
+                  {
+                    type: 'code',
+                    lang: lang === 'tsx' ? 'jsx' : 'js',
+                    meta:
+                      typeof meta.attributes.ts2js === 'string' ? meta.attributes.ts2js : meta.rest,
+                    value: result.code,
+                  },
+                ],
               },
             ],
-            children: [
-              {
-                type: 'code',
-                lang: 'jsx',
-                meta: node.meta,
-                value: result.code,
-              } satisfies Code,
-            ],
-          },
-        ],
+          });
+
+          Object.assign(node, replacement);
+        })(),
       );
 
-      Object.assign(node, insert);
       return 'skip';
     });
+
+    await Promise.all(tasks);
   };
 }

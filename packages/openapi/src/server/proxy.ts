@@ -1,23 +1,43 @@
-import type { NextRequest } from 'next/server';
+const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'] as const;
+const methodsWithBody = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-const keys = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'] as const;
+// https://fetch.spec.whatwg.org/#redirect-status
+const redirectStatus = new Set([301, 302, 303, 307, 308]);
+const maxRedirects = 20;
 
-type Proxy = {
-  [K in (typeof keys)[number]]: (req: NextRequest) => Promise<Response>;
-};
+class ProxyError extends Error {
+  constructor(
+    message: string,
+    public readonly status = 400,
+  ) {
+    super(message);
+  }
+}
 
-interface CreateProxyOptions {
+type Handler = (req: Request) => Promise<Response>;
+type OriginMatcher = string | RegExp;
+
+function matchOrigin(origin: string, matcher: OriginMatcher): boolean {
+  if (typeof matcher === 'string') return matcher === origin;
+  // reset `lastIndex` so a `g`/`y` flagged regex doesn't yield stateful,
+  // order-dependent results across calls.
+  matcher.lastIndex = 0;
+  return matcher.test(origin);
+}
+
+export interface Proxy extends Record<(typeof methods)[number], Handler> {
+  handle: Handler;
+}
+
+export interface CreateProxyOptions {
   /**
-   * Filter by prefixes of request url
+   * List of allowed origins to proxy to, also enforced on redirects.
    *
-   * @deprecated Use `allowedOrigins` for filtering origins, or `filterRequest` for more detailed rules.
+   * @defaultValue the proxy route's own origin (i.e. same-origin only). This
+   * prevents the proxy from being abused as an open proxy (SSRF) when no
+   * allowlist is configured; a warning is logged in that case.
    */
-  allowedUrls?: string[];
-
-  /**
-   * List of allowed origins to proxy to.
-   */
-  allowedOrigins?: string[];
+  allowedOrigins?: OriginMatcher[];
 
   /**
    * Determine if the proxied request is allowed.
@@ -36,100 +56,163 @@ interface CreateProxyOptions {
 }
 
 export function createProxy(options: CreateProxyOptions = {}): Proxy {
-  const {
-    allowedOrigins,
-    allowedUrls,
-    filterRequest = (req) => {
-      return (
-        !allowedUrls || allowedUrls.some((item) => req.url.startsWith(item))
-      );
-    },
-    overrides,
-  } = options;
-  const handlers: Partial<Proxy> = {};
+  const { allowedOrigins, filterRequest, overrides } = options;
+  const handlers: Partial<Proxy> = {
+    handle: handler,
+  };
 
-  async function handler(req: NextRequest): Promise<Response> {
-    const url = req.nextUrl.searchParams.get('url');
+  if (!allowedOrigins && !filterRequest) {
+    console.warn(
+      "[Proxy] `createProxy()` was called without `allowedOrigins` or `filterRequest`. Requests will be restricted to the proxy route's own origin. Set `allowedOrigins` to allow proxying to your API endpoints.",
+    );
+  }
 
-    if (!url) {
-      return Response.json(
-        '[Proxy] A `url` query parameter is required for proxy url',
-        {
-          status: 400,
-        },
-      );
-    }
+  async function handler(req: Request): Promise<Response> {
+    const reqUrl = new URL(req.url);
+    const searchParams = reqUrl.searchParams;
+    const rawUrl = searchParams.get('url');
 
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
+    if (!rawUrl)
+      return Response.json('[Proxy] A `url` query parameter is required for proxy url', {
+        status: 400,
+      });
+
+    const targetUrl = URL.parse(rawUrl);
+    if (!targetUrl)
       return Response.json('[Proxy] Invalid `url` parameter value.', {
+        status: 400,
+      });
+
+    const allowed = allowedOrigins ?? [reqUrl.origin];
+
+    if (allowed.every((matcher) => !matchOrigin(targetUrl.origin, matcher))) {
+      return Response.json(`[Proxy] The origin "${targetUrl.origin}" is not allowed.`, {
         status: 400,
       });
     }
 
-    if (allowedOrigins && !allowedOrigins.includes(parsedUrl.origin)) {
-      return Response.json(
-        `[Proxy] The origin "${parsedUrl.origin}" is not allowed.`,
-        {
-          status: 400,
-        },
-      );
-    }
+    const proxied = await rewriteRequest(req, targetUrl, searchParams.get('cookie'));
 
-    let proxied = new Request(parsedUrl, {
-      ...req,
-      cache: 'no-cache',
-      mode: 'cors',
-    });
-
-    if (overrides?.request) {
-      proxied = overrides.request(proxied);
-    }
-
-    if (!filterRequest(proxied)) {
+    if (filterRequest && !filterRequest(proxied)) {
       return Response.json('[Proxy] The proxied request is not allowed', {
         status: 403,
       });
     }
 
-    proxied.headers.forEach((_value, originalKey) => {
-      const key = originalKey.toLowerCase();
-
-      if (key === 'origin') {
-        proxied.headers.delete(originalKey);
+    try {
+      return rewriteResponse(await proxyFetch(proxied, allowed));
+    } catch (err) {
+      if (err instanceof ProxyError) {
+        return Response.json(`[Proxy] ${err.message}`, { status: err.status });
       }
+
+      return Response.json(
+        `[Proxy] Failed to proxy request: ${err instanceof Error ? err.message : 'unknown reason'}`,
+        {
+          status: 500,
+        },
+      );
+    }
+  }
+
+  async function proxyFetch(initial: Request, allowed: OriginMatcher[]): Promise<Response> {
+    let method = initial.method;
+    let url = initial.url;
+    const headers = new Headers(initial.headers);
+    let body: ArrayBuffer | undefined =
+      initial.body && methodsWithBody.has(method.toUpperCase())
+        ? await initial.arrayBuffer()
+        : undefined;
+
+    for (let redirects = 0; redirects <= maxRedirects; redirects++) {
+      const response = await fetch(
+        new Request(url, { method, headers, body, cache: 'no-cache', redirect: 'manual' }),
+      );
+
+      const location = response.headers.get('location');
+      if (!redirectStatus.has(response.status) || !location) return response;
+
+      const next = new URL(location, url);
+      if (allowed.every((matcher) => !matchOrigin(next.origin, matcher))) {
+        throw new ProxyError(`The redirect origin "${next.origin}" is not allowed.`);
+      }
+
+      // Match browser semantics: 303 (and 301/302 for non-idempotent methods)
+      // turn the follow-up request into a bodyless GET.
+      switch (response.status) {
+        case 301:
+        case 302:
+          if (method === 'GET' || method === 'HEAD') break;
+        case 303:
+          method = 'GET';
+          body = undefined;
+          headers.delete('content-length');
+          headers.delete('content-type');
+          break;
+      }
+
+      url = next.href;
+    }
+
+    throw new ProxyError('Too many redirects.', 508);
+  }
+
+  async function rewriteRequest(
+    request: Request,
+    url: URL,
+    cookie: string | null,
+  ): Promise<Request> {
+    const headers = new Headers(request.headers);
+    headers.delete('origin');
+    if (cookie) {
+      headers.set('Cookie', cookie);
+    }
+
+    const contentLength = headers.get('content-length');
+    const hasBody = contentLength && parseInt(contentLength) > 0;
+
+    const proxied = new Request(url, {
+      method: request.method,
+      cache: 'no-cache',
+      headers,
+      body:
+        hasBody && methodsWithBody.has(request.method.toUpperCase())
+          ? await request.arrayBuffer()
+          : undefined,
     });
 
-    let res = await fetch(proxied).catch((e) => new Error(e.toString()));
-    if (res instanceof Error) {
-      return Response.json(`[Proxy] Failed to proxy request: ${res.message}`, {
-        status: 500,
-      });
-    }
+    return overrides?.request ? overrides.request(proxied) : proxied;
+  }
 
+  async function rewriteResponse(response: Response): Promise<Response> {
     if (overrides?.response) {
-      res = overrides.response(res);
+      response = overrides.response(response);
     }
 
-    const headers = new Headers(res.headers);
+    const headers = new Headers(response.headers);
+    // `fetch()` already decoded the body, so the upstream content-encoding and
+    // content-length no longer describe the bytes we forward. Leaving them makes
+    // the browser try to decode plain data again (ERR_CONTENT_DECODING_FAILED).
+    headers.delete('content-encoding');
+    headers.delete('content-length');
+
     headers.forEach((_value, originalKey) => {
       const key = originalKey.toLowerCase();
-      if (key.startsWith('access-control-') || key === 'content-encoding') {
+
+      if (key.startsWith('access-control-')) {
         headers.delete(originalKey);
       }
     });
-    headers.set('X-Forwarded-Host', res.url);
+    headers.set('X-Forwarded-Host', response.url);
 
-    return new Response(res.body, {
-      status: res.status,
-      statusText: res.statusText,
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
       headers,
     });
   }
 
-  for (const key of keys) {
+  for (const key of methods) {
     handlers[key] = handler;
   }
 

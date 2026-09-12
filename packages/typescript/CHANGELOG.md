@@ -1,4 +1,306 @@
+## fumadocs-typescript@5.4.0
+
+### Generate type tables with the native TypeScript compiler
+
+`fumadocs-typescript` no longer uses ts-morph. It drives the TypeScript 7 native compiler (`tsgo`) through the `typescript/unstable/sync` API, bundled as a dependency, so it works regardless of the TypeScript version of your project, including TypeScript 7 before its programmatic API is stable.
+
+Only the documented files (and what they import) are loaded into the compiler, instead of the entire `tsconfig.json` project. On the Fumadocs docs site this makes cold generation about 5x faster (first table 500 ms → 50 ms, later tables 20 ms → 5 ms) with roughly half the memory.
+
+**Behavior changes**
+
+- `transform` and `typeSimplifier` hooks receive TypeScript 7 API objects (`Type`, `Symbol`, `Checker`, `Node`) instead of ts-morph wrappers. `this.program` is the TypeScript 7 `Project`, and `this.checker` is available.
+- The `project` option of `createGenerator()` takes the `Project` returned by `createProject()`.
+- Members of mapped types (e.g. `Pick`) and unions may be printed in a different order, following the native compiler.
+
+## fumadocs-typescript@5.3.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
+## fumadocs-typescript@5.2.7
+
+### Migrate to `cnfast`
+
+Drop `tailwind-merge`.
+
 # fumadocs-typescript
+
+## 5.2.6
+
+### Patch Changes
+
+- 64d6b10: Bump `ts-morph`
+
+## 5.2.5
+
+### Patch Changes
+
+- ccad791: update peer deps
+- Updated dependencies [e1567e2]
+- Updated dependencies [9a200c8]
+- Updated dependencies [c731a92]
+- Updated dependencies [ccad791]
+- Updated dependencies [a4189ce]
+  - fumadocs-core@16.7.15
+  - fumadocs-ui@16.7.15
+
+## 5.2.4
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - fumadocs-ui@16.7.14
+  - fumadocs-core@16.7.14
+
+## 5.2.3
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - fumadocs-ui@16.7.13
+  - fumadocs-core@16.7.13
+
+## 5.2.2
+
+### Patch Changes
+
+- a070650: fix `remarkAutoTypeTable` not serializing `deprecated` field to MDX output
+- Updated dependencies [5524927]
+- Updated dependencies [d47c4f1]
+  - fumadocs-core@16.7.11
+  - fumadocs-ui@16.7.11
+
+## 5.2.1
+
+### Patch Changes
+
+- c64e406: fix `noUndefined` for union types in `getSimpleForm()`
+- Updated dependencies [f7e69a6]
+  - fumadocs-ui@16.7.8
+  - fumadocs-core@16.7.8
+
+## 5.2.0
+
+### Minor Changes
+
+- 1fc5549: Bump deps
+
+### Patch Changes
+
+- 8ec9cbe: More options for simplifying types
+- Updated dependencies [8bdee70]
+- Updated dependencies [bdffeba]
+- Updated dependencies [3d17757]
+- Updated dependencies [f45d703]
+- Updated dependencies [45aa454]
+  - fumadocs-ui@16.7.0
+  - fumadocs-core@16.7.0
+
+## 5.1.5
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - fumadocs-ui@16.6.8
+  - fumadocs-core@16.6.8
+
+## 5.1.4
+
+### Patch Changes
+
+- 16360ef: fix tag parser
+- Updated dependencies [1a614de]
+- Updated dependencies [6ab6692]
+  - fumadocs-core@16.6.5
+  - fumadocs-ui@16.6.5
+
+## 5.1.3
+
+### Patch Changes
+
+- 071347a: Support props passthrough for type tables
+- 20cd4d6: Support ID & `@fumadocsHref` tag in type tables
+- Updated dependencies [00c9a0f]
+- Updated dependencies [20cd4d6]
+  - fumadocs-core@16.6.1
+  - fumadocs-ui@16.6.1
+
+## 5.1.2
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-ui@16.5.2
+  - fumadocs-core@16.5.2
+
+## 5.1.0
+
+### Minor Changes
+
+- f6cecbf: Use Universal Shiki configuration for Markdown renderer
+
+### Patch Changes
+
+- Updated dependencies [9ba1250]
+  - fumadocs-ui@16.6.0
+  - fumadocs-core@16.6.0
+
+## 5.0.1
+
+### Patch Changes
+
+- 689d31e: Improve error message
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+  - fumadocs-ui@16.4.2
+
+## 5.0.0
+
+### Major Changes
+
+- 9a3e2e8: **Require async for `generator.generateDocumentation()`**
+
+  This is necessary to support async cache adapter.
+
+- 9a3e2e8: **Remove deprecated APIs**
+  - removed standalone `generateDocumentation()` function, create a generator instead.
+  - removed `generateFiles` & MDX generation APIs, use `remarkAutoTypeTable` instead.
+
+- 9a3e2e8: **Require explicit cache**
+
+  Previously, we enabled file system cache by default, but the directory is not customisable and only support Next.js.
+
+  Now, cache is disabled by default and require explicit declaration.
+
+  Update all your `createGenerator()` calls:
+
+  ```ts
+  import {
+    createGenerator,
+    createFileSystemGeneratorCache,
+  } from "fumadocs-typescript";
+
+  const generator = createGenerator({
+    // add this!
+    cache: createFileSystemGeneratorCache(".next/fumadocs-typescript"),
+  });
+  ```
+
+### Patch Changes
+
+- Updated dependencies [7c78045]
+  - fumadocs-ui@16.3.2
+  - fumadocs-core@16.3.2
+
+## 4.0.14
+
+### Patch Changes
+
+- f728e67: Support customising full type with `@fumadocsType` tag
+- Updated dependencies [da87713]
+- Updated dependencies [d17499b]
+  - fumadocs-core@16.2.4
+  - fumadocs-ui@16.2.4
+
+## 4.0.13
+
+### Patch Changes
+
+- ca09b6a: Core: Support accessing MDX plugins separately at `fumadocs-core/mdx-plugins/*`
+- Updated dependencies [bc97236]
+- Updated dependencies [ca09b6a]
+- Updated dependencies [c0df2c4]
+- Updated dependencies [117ad86]
+  - fumadocs-core@16.0.8
+  - fumadocs-ui@16.0.8
+
+## 4.0.12
+
+### Patch Changes
+
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [1494340]
+- Updated dependencies [230c6bf]
+- Updated dependencies [851897c]
+- Updated dependencies [de0ce6d]
+- Updated dependencies [4049ccc]
+- Updated dependencies [0ed0ca6]
+- Updated dependencies [429c41a]
+- Updated dependencies [5210f18]
+- Updated dependencies [cbc93e9]
+- Updated dependencies [42f09c3]
+- Updated dependencies [55afd8a]
+- Updated dependencies [5966e23]
+  - fumadocs-ui@16.0.0
+  - fumadocs-core@16.0.0
+
+## 4.0.11
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+- Updated dependencies [7b0d839]
+  - fumadocs-core@15.8.3
+  - fumadocs-ui@15.8.3
+
+## 4.0.10
+
+### Patch Changes
+
+- e0cfcdc: Improve simple type generation
+- Updated dependencies [90cf1fe]
+- Updated dependencies [ad9a004]
+- Updated dependencies [90cf1fe]
+- Updated dependencies [6c3bde5]
+- Updated dependencies [747bdbc]
+  - fumadocs-ui@15.8.2
+  - fumadocs-core@15.8.2
+
+## 4.0.9
+
+### Patch Changes
+
+- 43cbf32: Fix `@remarks` used for full instead of simplified type form
+- Updated dependencies [655bb46]
+- Updated dependencies [53a0635]
+- Updated dependencies [d1ae3e8]
+- Updated dependencies [6548a59]
+- Updated dependencies [51268ec]
+- Updated dependencies [51268ec]
+  - fumadocs-core@15.8.0
+  - fumadocs-ui@15.8.0
+
+## 4.0.8
+
+### Patch Changes
+
+- 0d55667: Enforce `peerDeps` on Fumadocs deps
+- Updated dependencies [c948f59]
+  - fumadocs-core@15.7.10
+  - fumadocs-ui@15.7.10
+
+## 4.0.7
+
+### Patch Changes
+
+- 45c7531: Type Table: Support displaying parameters & return types
+- 4082acc: Redesign Type Table
+
+## 4.0.6
+
+### Patch Changes
+
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
 
 ## 4.0.5
 
@@ -23,7 +325,7 @@
 
 ### Patch Changes
 
-- 38117c1: add `null | undefined` to optional props in a object type
+- 38117c1: add `null | undefined` to optional props in an object type
 
 ## 4.0.1
 
@@ -40,7 +342,7 @@
   Create a generator instance:
 
   ```ts
-  import { createGenerator } from 'fumadocs-typescript';
+  import { createGenerator } from "fumadocs-typescript";
 
   const generator = createGenerator(tsconfig);
   ```
@@ -78,7 +380,7 @@
   return <AutoTypeTable generator={generator} {...props} />
   ```
 
-  This ensure the compiler instance is always re-used.
+  This ensures the compiler instance is always re-used.
 
 ## 3.1.0
 
@@ -152,7 +454,6 @@
 - f75287d: **Introduce `fumadocs-docgen` package.**
 
   Offer a better authoring experience for advanced use cases.
-
   - Move `remark-dynamic-content` and `remark-install` plugins to the new package `fumadocs-docgen`.
   - Support Typescript generator by default
 
@@ -161,7 +462,7 @@
   Add the `remarkDocGen` plugin to your remark plugins.
 
   ```ts
-  import { remarkDocGen, fileGenerator } from 'fumadocs-docgen';
+  import { remarkDocGen, fileGenerator } from "fumadocs-docgen";
 
   remark().use(remarkDocGen, { generators: [fileGenerator()] });
   ```
@@ -191,7 +492,7 @@
   For `remarkInstall`, it remains the same:
 
   ```ts
-  import { remarkInstall } from 'fumadocs-docgen';
+  import { remarkInstall } from "fumadocs-docgen";
   ```
 
 ## 1.0.2

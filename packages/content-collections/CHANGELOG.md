@@ -1,4 +1,94 @@
+## @fumadocs/content-collections@1.3.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
 # @fumadocs/content-collections
+
+## 1.2.9
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - fumadocs-core@16.7.14
+
+## 1.2.8
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - fumadocs-core@16.7.13
+
+## 1.2.7
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - fumadocs-core@16.6.8
+
+## 1.2.6
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-core@16.5.2
+
+## 1.2.5
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+
+## 1.2.4
+
+### Patch Changes
+
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [230c6bf]
+- Updated dependencies [851897c]
+- Updated dependencies [4049ccc]
+- Updated dependencies [429c41a]
+- Updated dependencies [5210f18]
+- Updated dependencies [cbc93e9]
+- Updated dependencies [42f09c3]
+- Updated dependencies [55afd8a]
+  - fumadocs-core@16.0.0
+
+## 1.2.3
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+  - fumadocs-core@15.8.3
+
+## 1.2.2
+
+### Patch Changes
+
+- 68c92f9: Fix type issues on v1.2
+- Updated dependencies [0b53056]
+- Updated dependencies [3490285]
+  - fumadocs-core@15.7.7
+
+## 1.2.1
+
+### Patch Changes
+
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
+- Updated dependencies [7a45921]
+- Updated dependencies [1b7bc4b]
+  - fumadocs-core@15.5.2
 
 ## 1.2.0
 

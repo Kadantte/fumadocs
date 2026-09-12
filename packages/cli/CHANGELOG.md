@@ -1,4 +1,196 @@
+## @fumadocs/cli@1.6.0
+
+### `init` and `feature` commands
+
+The CLI now configures Fumadocs on an existing app and adds features to it, beyond installing UI components. Supported on Next.js, React Router, TanStack Start and Waku.
+
+```bash
+npx @fumadocs/cli init
+npx @fumadocs/cli feature llms
+```
+
+`init` adds the docs pages in a dedicated route group (e.g. `app/(docs)`) with their own provider, layout and search route, so your existing setup stays untouched: it only registers the Fumadocs MDX plugin in your bundler config, imports the styles into your global CSS and adds `suppressHydrationWarning` to `<html>`. Pass `--i18n` to set up internationalization with locale-prefixed routes.
+
+`feature <id>` installs the components and routes of a feature and wires them into your app: `ai` (Ask AI dialog), `llms` (`llms.txt`, `llms-full.txt` and per-page Markdown, with the `/docs/*.md` rewrite on Next.js), `mcp`, `webmcp` (experimental), `og`, `search` (Orama Cloud, Algolia, Typesense, Mixedbread), `feedback`, `epub` and `lint`. Features follow your setup: the `baseUrl` of your docs, `src/` directory, i18n, static export and SPA modes, Fumadocs MDX with the macro API or `source.config.ts`. Route URLs are read from the constants of `lib/shared.ts` (`docsRoute`, `docsContentRoute`, `docsImageRoute`), and route features add URL helpers like `getPageMarkdownUrl(page)` to `lib/source.ts`.
+
+Every command takes `-y` to skip prompts and `--no-install` to only write dependencies to `package.json`.
+
+Components are installed at the directories of your shadcn `components.json` by default, so the same component isn't duplicated in two places. `export epub` no longer scaffolds the export route, run `feature epub` instead.
+
+### CLIs on `cac`
+
+The CLIs are now built on [cac](https://github.com/cacjs/cac).
+
+## @fumadocs/cli@1.5.0
+
+### Add API Playground & Schema UI components
+
+Install the UI of API integrations into your codebase:
+
+```npm
+npx @fumadocs/cli add fumadocs/openapi/playground
+npx @fumadocs/cli add fumadocs/api-docs/schema
+```
+
+## @fumadocs/cli@1.4.1
+
+### Add Astro framework support
+
+Add Astro as a supported framework with React islands, including framework providers, an example app, create-app template support, search integration, OG image generation, and documentation.
+
+## @fumadocs/cli@1.4.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
 # fumadocs
+
+## 1.3.10
+
+### Patch Changes
+
+- 2d22086: Improve for Sanity registry
+
+## 1.3.9
+
+### Patch Changes
+
+- af7ee2d: fix layout preserve plugin
+
+## 1.3.8
+
+### Patch Changes
+
+- 71c15fd: fix base dir detection for React Router
+
+## 1.3.7
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+
+## 1.3.6
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+
+## 1.3.5
+
+### Patch Changes
+
+- 7c59264: Adopt Fuma CLI
+
+## 1.3.4
+
+### Patch Changes
+
+- 1a84b96: hotfix cwd for default config
+
+## 1.3.3
+
+### Patch Changes
+
+- 3ff78c9: Support framework-agnostic route handler
+
+## 1.3.2
+
+### Patch Changes
+
+- 823d880: Support slot in customize command
+
+## 1.3.1
+
+### Patch Changes
+
+- e201942: support layout type
+
+## 1.3.0
+
+### Minor Changes
+
+- 0ddaa8a: Preserve layout imports for slots
+
+## 1.2.6
+
+### Patch Changes
+
+- 42e17a4: Support `cwd` in installer
+- b2191f5: Expose installer
+
+## 1.2.5
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+
+## 1.2.4
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- 4c570ce: add Flux layout to customize option
+
+## 1.2.3
+
+### Patch Changes
+
+- 65ff886: Improve CLI interactive experience
+
+## 1.2.2
+
+### Patch Changes
+
+- 6039041: Migrate to oxc for AST manipulation
+
+## 1.2.1
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+
+## 1.2.0
+
+### Minor Changes
+
+- 389e68b: Fumadocs UI 16.3
+
+## 1.1.0
+
+### Minor Changes
+
+- 897fdef: Update `customize` command to support Fumadocs UI 16.2.0
+
+## 1.0.3
+
+### Patch Changes
+
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+
+## 1.0.2
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+
+## 1.0.1
+
+### Patch Changes
+
+- c9c27fe: Support Shadcn CLI v3
+
+## 1.0.0
+
+### Major Changes
+
+- 3f6e948: Redesign installer & fumadocs registry schema
+
+## 0.2.1
+
+### Patch Changes
+
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
 
 ## 0.2.0
 
@@ -15,13 +207,13 @@
 
 ### Patch Changes
 
-- 482f728: add home layout to customise option
+- 482f728: add home layout to customize option
 
 ## 0.1.0
 
 ### Minor Changes
 
-- 72a3e8c: Add customise command
+- 72a3e8c: Add customize command
 
 ## 0.0.8
 

@@ -1,34 +1,54 @@
-import type { LoaderOutput, Meta, Page } from './loader';
+import type { Meta, Page } from './loader';
+import type { SourceUnion } from './source';
+import type {
+  ContentStorage,
+  ContentStorageMetaFile,
+  ContentStoragePageFile,
+} from './storage/content';
 
-export interface MetaData {
-  icon?: string | undefined;
-  title?: string | undefined;
-  root?: boolean | undefined;
-  pages?: string[] | undefined;
-  defaultOpen?: boolean | undefined;
+export type AnyInput = SourceUnion | Record<string, SourceUnion>;
 
-  description?: string | undefined;
-}
+export type GeneratePage<T extends AnyInput> =
+  T extends Record<infer K extends string, SourceUnion>
+    ? {
+        [k in K]: T[k] extends SourceUnion<infer D> ? Page<k, D['pageData']> : never;
+      }[K]
+    : T extends SourceUnion<infer D>
+      ? Page<undefined, D['pageData']>
+      : never;
 
-export interface PageData {
-  icon?: string | undefined;
-  title?: string;
-  description?: string | undefined;
-}
+export type GenerateMeta<T extends AnyInput> =
+  T extends Record<infer K extends string, SourceUnion>
+    ? {
+        [k in K]: T[k] extends SourceUnion<infer D> ? Meta<k, D['metaData']> : never;
+      }[K]
+    : T extends SourceUnion<infer D>
+      ? Meta<undefined, D['metaData']>
+      : never;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- infer types
-export type InferPageType<Utils extends LoaderOutput<any>> =
-  Utils extends LoaderOutput<infer Config>
-    ? Page<Config['source']['pageData']>
-    : never;
+export type GeneratePageFile<T extends AnyInput> =
+  T extends Record<infer K extends string, SourceUnion>
+    ? {
+        [k in K]: T[k] extends SourceUnion<infer D>
+          ? ContentStoragePageFile<k, D['pageData']>
+          : never;
+      }[K]
+    : T extends SourceUnion<infer D>
+      ? ContentStoragePageFile<undefined, D['pageData']>
+      : never;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- infer types
-export type InferMetaType<Utils extends LoaderOutput<any>> =
-  Utils extends LoaderOutput<infer Config>
-    ? Meta<Config['source']['metaData']>
-    : never;
+export type GenerateMetaFile<T extends AnyInput> =
+  T extends Record<infer K extends string, SourceUnion>
+    ? {
+        [k in K]: T[k] extends SourceUnion<infer D>
+          ? ContentStorageMetaFile<k, D['metaData']>
+          : never;
+      }[K]
+    : T extends SourceUnion<infer D>
+      ? ContentStorageMetaFile<undefined, D['metaData']>
+      : never;
 
-/**
- * @internal
- */
-export type UrlFn = (slugs: string[], locale?: string) => string;
+export type GenerateStorage<T extends AnyInput> = ContentStorage<
+  GeneratePageFile<T>,
+  GenerateMetaFile<T>
+>;

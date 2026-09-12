@@ -1,43 +1,26 @@
-import { readFileSync } from 'node:fs';
-import { generateOGImage } from '@/app/og/[...slug]/og';
 import { source } from '@/lib/source';
 import { notFound } from 'next/navigation';
+import { generate as MetadataImage, getImageResponseOptions } from './generate';
+import { ImageResponse } from 'takumi-js/response';
+import { getPageImageUrl } from '@/lib/metadata';
 
-const font = readFileSync('./app/og/[...slug]/JetBrainsMono-Regular.ttf');
-const fontBold = readFileSync('./app/og/[...slug]/JetBrainsMono-Bold.ttf');
+export const revalidate = false;
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ slug: string[] }> },
-) {
+export async function GET(_req: Request, { params }: RouteContext<'/og/[...slug]'>) {
   const { slug } = await params;
   const page = source.getPage(slug.slice(0, -1));
   if (!page) notFound();
 
-  return generateOGImage({
-    primaryTextColor: 'rgb(240,240,240)',
-    title: page.data.title,
-    description: page.data.description,
-    fonts: [
-      {
-        name: 'Mono',
-        data: font,
-        weight: 400,
-      },
-      {
-        name: 'Mono',
-        data: fontBold,
-        weight: 600,
-      },
-    ],
-  });
+  return new ImageResponse(
+    <MetadataImage title={page.data.title} description={page.data.description} />,
+    await getImageResponseOptions(),
+  );
 }
 
 export function generateStaticParams(): {
   slug: string[];
 }[] {
-  return source.generateParams().map((page) => ({
-    ...page,
-    slug: [...page.slug, 'image.png'],
+  return source.getPages().map((page) => ({
+    slug: getPageImageUrl(page).segments,
   }));
 }

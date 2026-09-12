@@ -1,5 +1,7 @@
 import { type ReactNode, useMemo } from 'react';
-import type * as PageTree from '@/server/page-tree';
+import type * as PageTree from '@/page-tree/definitions';
+import { normalizeUrl } from '@/utils/url';
+import { findPath } from '@/page-tree/utils';
 
 export interface BreadcrumbItem {
   name: ReactNode;
@@ -8,21 +10,23 @@ export interface BreadcrumbItem {
 
 export interface BreadcrumbOptions {
   /**
-   * Include the root itself in the breadcrumb items array.
-   * Specify the url by passing an object instead
+   * Include the root folders in the breadcrumb items array.
    *
    * @defaultValue false
    */
   includeRoot?:
     | boolean
     | {
+        /**
+         * Specify the url of root
+         */
         url: string;
       };
 
   /**
    * Include the page itself in the breadcrumb items array
    *
-   * @defaultValue true
+   * @defaultValue false
    */
   includePage?: boolean;
 
@@ -36,70 +40,65 @@ export interface BreadcrumbOptions {
 
 export function useBreadcrumb(
   url: string,
-  tree: PageTree.Root,
+  tree: PageTree.Root | PageTree.Folder,
   options?: BreadcrumbOptions,
 ): BreadcrumbItem[] {
-  return useMemo(
-    () => getBreadcrumbItems(url, tree, options),
-    [tree, url, options],
-  );
+  return useMemo(() => getBreadcrumbItems(url, tree, options), [tree, url, options]);
 }
 
 export function getBreadcrumbItems(
   url: string,
-  tree: PageTree.Root,
+  tree: PageTree.Root | PageTree.Folder,
   options: BreadcrumbOptions = {},
 ): BreadcrumbItem[] {
-  return getBreadcrumbItemsFromPath(
-    tree,
-    searchPath(tree.children, url) ?? [],
-    options,
-  );
+  return getBreadcrumbItemsFromPath(tree, searchPath(tree.children, url) ?? [], options);
 }
 
 export function getBreadcrumbItemsFromPath(
-  tree: PageTree.Root,
+  tree: PageTree.Root | PageTree.Folder,
   path: PageTree.Node[],
   options: BreadcrumbOptions,
 ): BreadcrumbItem[] {
-  const { includePage = true, includeSeparator = false, includeRoot } = options;
+  const { includePage = false, includeSeparator = false, includeRoot = false } = options;
   let items: BreadcrumbItem[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const item = path[i];
 
-  path.forEach((item, i) => {
-    if (item.type === 'separator' && item.name && includeSeparator) {
-      items.push({
-        name: item.name,
-      });
+    switch (item.type) {
+      case 'page':
+        if (includePage)
+          items.push({
+            name: item.name,
+            url: item.url,
+          });
+        break;
+      case 'folder':
+        if (item.root) {
+          items = [];
+          if (includeRoot) {
+            items.push({
+              name: tree.name,
+              url: typeof includeRoot === 'object' ? includeRoot.url : item.index?.url,
+            });
+          }
+          break;
+        }
+
+        // only show the index node of folders if possible
+        if (i === path.length - 1 || item.index !== path[i + 1]) {
+          items.push({
+            name: item.name,
+            url: item.index?.url,
+          });
+        }
+        break;
+      case 'separator':
+        if (item.name && includeSeparator)
+          items.push({
+            name: item.name,
+          });
+        break;
     }
-
-    if (item.type === 'folder') {
-      const next = path.at(i + 1);
-      if (next && item.index === next) return;
-
-      if (item.root) {
-        items = [];
-        return;
-      }
-
-      items.push({
-        name: item.name,
-        url: item.index?.url,
-      });
-    }
-
-    if (item.type === 'page' && includePage) {
-      items.push({
-        name: item.name,
-        url: item.url,
-      });
-    }
-  });
-
-  if (includeRoot) {
-    items.unshift({
-      name: tree.name,
-      url: typeof includeRoot === 'object' ? includeRoot.url : undefined,
-    });
   }
 
   return items;
@@ -111,48 +110,10 @@ export function getBreadcrumbItemsFromPath(
  * - When the page doesn't exist, return null
  *
  * @returns The path to the target node from root
- * @internal
+ * @internal Don't use this on your own
  */
-export function searchPath(
-  nodes: PageTree.Node[],
-  url: string,
-): PageTree.Node[] | null {
-  if (url.endsWith('/')) url = url.slice(0, -1);
+export function searchPath(nodes: PageTree.Node[], url: string): PageTree.Node[] | null {
+  const normalizedUrl = normalizeUrl(url);
 
-  let separator: PageTree.Separator | undefined;
-
-  for (const node of nodes) {
-    if (node.type === 'separator') separator = node;
-
-    if (node.type === 'folder') {
-      if (node.index?.url === url) {
-        const items: PageTree.Node[] = [];
-
-        if (separator) items.push(separator);
-        items.push(node, node.index);
-
-        return items;
-      }
-
-      const items = searchPath(node.children, url);
-
-      if (items) {
-        items.unshift(node);
-        if (separator) items.unshift(separator);
-
-        return items;
-      }
-    }
-
-    if (node.type === 'page' && node.url === url) {
-      const items: PageTree.Node[] = [];
-
-      if (separator) items.push(separator);
-      items.push(node);
-
-      return items;
-    }
-  }
-
-  return null;
+  return findPath(nodes, (node) => node.type === 'page' && node.url === normalizedUrl);
 }

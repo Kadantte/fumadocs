@@ -1,10 +1,7 @@
 import type { Expression, Program } from 'estree';
+import type { MdxJsxAttribute } from 'mdast-util-mdx';
 
-export function createElement(
-  name: string,
-  attributes: object[],
-  children?: unknown,
-): object {
+export function createElement(name: string, attributes: object[], children?: unknown): object {
   const element: Record<string, unknown> = {
     type: 'mdxJsxFlowElement',
     name,
@@ -16,12 +13,13 @@ export function createElement(
   return element;
 }
 
-export function expressionToAttribute(key: string, value: Expression): object {
+export function expressionToAttribute(key: string, value: Expression): MdxJsxAttribute {
   return {
     type: 'mdxJsxAttribute',
     name: key,
     value: {
       type: 'mdxJsxAttributeValueExpression',
+      value: '',
       data: {
         estree: {
           type: 'Program',

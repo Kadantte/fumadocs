@@ -1,5 +1,8 @@
-import type { CloudManager } from '@oramacloud/client';
 import type { StructuredData } from '@/mdx-plugins';
+import type { AnyObject, OramaCloud } from '@orama/core';
+import type { LoaderConfig, LoaderOutput } from '@/source/loader';
+import type { Awaitable } from '@/types';
+import { buildDocuments } from './server/build-index';
 
 export interface SyncOptions {
   /**
@@ -17,7 +20,7 @@ export interface SyncOptions {
   autoDeploy?: boolean;
 }
 
-export type I18nSyncOptions = Omit<SyncOptions, 'index' | 'documents'> & {
+export interface I18nSyncOptions extends Omit<SyncOptions, 'index' | 'documents'> {
   /**
    * Indexes to sync.
    *
@@ -29,7 +32,7 @@ export type I18nSyncOptions = Omit<SyncOptions, 'index' | 'documents'> & {
     locale: string;
     items: OramaDocument[];
   }[];
-};
+}
 
 export interface OramaDocument {
   /**
@@ -55,6 +58,7 @@ export interface OramaDocument {
    * Data to be added to each section index
    */
   extra_data?: object;
+  breadcrumbs?: string[];
 }
 
 export interface OramaIndex {
@@ -75,6 +79,8 @@ export interface OramaIndex {
    */
   section?: string;
 
+  breadcrumbs?: string[];
+
   /**
    * Heading (anchor) id
    */
@@ -83,28 +89,50 @@ export interface OramaIndex {
   content: string;
 }
 
-export async function sync(
-  cloudManager: CloudManager,
-  options: SyncOptions,
-): Promise<void> {
-  const { autoDeploy = true } = options;
-  const index = cloudManager.index(options.index);
-
-  await index.snapshot(options.documents.flatMap(toIndex));
-  if (autoDeploy) await index.deploy();
+/**
+ * Build the search indexes of every page in a source.
+ */
+export function toDocuments<C extends LoaderConfig>(
+  source: LoaderOutput<C> | (() => Awaitable<LoaderOutput<C>>),
+  options: {
+    /** Tag to filter results by. */
+    tag?: (page: C['page']) => string;
+  } = {},
+): Promise<OramaDocument[]> {
+  return buildDocuments(source, (index, page) => ({
+    id: index.id,
+    title: index.title,
+    description: index.description,
+    url: index.url,
+    structured: index.structuredData,
+    tag: options.tag?.(page),
+  }));
 }
 
-export async function syncI18n(
-  cloudManager: CloudManager,
-  options: I18nSyncOptions,
-): Promise<void> {
+export async function sync(orama: OramaCloud, options: SyncOptions): Promise<void> {
   const { autoDeploy = true } = options;
+  const index = orama.index.set(options.index);
+  await index.transaction.open();
+
+  await index.transaction.insertDocuments(
+    options.documents.flatMap(toIndex) as unknown as AnyObject[],
+  );
+
+  if (autoDeploy) await index.transaction.commit();
+}
+
+export async function syncI18n(orama: OramaCloud, options: I18nSyncOptions): Promise<void> {
+  const { autoDeploy = true, indexes } = options;
 
   const tasks = options.documents.map(async (document) => {
-    const index = cloudManager.index(options.indexes[document.locale]);
+    const index = orama.index.set(indexes[document.locale]);
+    await index.transaction.open();
 
-    await index.snapshot(document.items.flatMap(toIndex));
-    if (autoDeploy) await index.deploy();
+    await index.transaction.insertDocuments(
+      document.items.flatMap(toIndex) as unknown as AnyObject[],
+    );
+
+    if (autoDeploy) await index.transaction.commit();
   });
 
   await Promise.all(tasks);
@@ -129,17 +157,15 @@ function toIndex(page: OramaDocument): OramaIndex[] {
       section,
       section_id: sectionId,
       content,
+      breadcrumbs: page.breadcrumbs,
       ...page.extra_data,
     };
   }
 
-  if (page.description)
-    indexes.push(createIndex(undefined, undefined, page.description));
+  if (page.description) indexes.push(createIndex(undefined, undefined, page.description));
 
   page.structured.contents.forEach((p) => {
-    const heading = p.heading
-      ? page.structured.headings.find((h) => p.heading === h.id)
-      : null;
+    const heading = p.heading ? page.structured.headings.find((h) => p.heading === h.id) : null;
 
     const index = createIndex(heading?.content, heading?.id, p.content);
 

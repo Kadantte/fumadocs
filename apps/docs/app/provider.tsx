@@ -1,11 +1,11 @@
 'use client';
 
-import { RootProvider } from 'fumadocs-ui/provider';
+import { RootProvider } from 'fumadocs-ui/provider/base';
 import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
+import { Tooltip } from '@base-ui/react/tooltip';
 
-const SearchDialog = dynamic(() => import('@/components/search'), {
+const SearchDialog = dynamic(() => import('@/components/layouts/search'), {
   ssr: false,
 });
 
@@ -18,10 +18,10 @@ if (typeof uwuParam === 'string') {
 }
 
 const item = localStorage.getItem('uwu')
-    
+
 if (item === 'true') {
     document.documentElement.classList.add("uwu")
-}    
+}
 `;
 
 export function Provider({ children }: { children: ReactNode }) {
@@ -31,13 +31,10 @@ export function Provider({ children }: { children: ReactNode }) {
         SearchDialog,
       }}
     >
-      <TooltipProvider>
-        <script
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: inject }}
-        />
+      <Tooltip.Provider>
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: inject }} />
         {children}
-      </TooltipProvider>
+      </Tooltip.Provider>
     </RootProvider>
   );
 }

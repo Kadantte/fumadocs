@@ -15,6 +15,7 @@ import Design from './design.png';
 import Link from 'fumadocs-core/link';
 import MixSpace from '@/public/showcases/mix-space.png';
 import TurboStarter from '@/public/showcases/turbostarter.png';
+import HexaasBlog from '@/public/showcases/hexaas-blog.png';
 
 export const metadata = createMetadata({
   title: 'Showcase',
@@ -32,9 +33,9 @@ interface ShowcaseObject {
 
 const showcases: ShowcaseObject[] = [
   {
-    image: '/showcases/million.png',
-    name: 'Million',
-    url: 'https://million.dev',
+    image: '/showcases/shadcn.png',
+    name: 'shadcn/ui',
+    url: 'https://ui.shadcn.com',
   },
   {
     image: BetterAuth,
@@ -42,8 +43,24 @@ const showcases: ShowcaseObject[] = [
     url: 'https://better-auth.com',
   },
   {
+    image: '/showcases/c15t.png',
+    name: 'c15t',
+    url: 'https://c15t.com',
+  },
+  {
+    image: '/showcases/better-t-stack.jpeg',
+    name: 'Better T Stack',
+    url: 'https://better-t-stack.dev',
+  },
+  {
+    image: '/showcases/zod.png',
     name: 'Zod',
-    url: 'https://v4.zod.dev',
+    url: 'https://zod.dev',
+  },
+  {
+    image: '/showcases/prisma.png',
+    name: 'Prisma',
+    url: 'https://prisma.io',
   },
   { image: '/showcases/nuqs.jpg', name: 'nuqs', url: 'https://nuqs.47ng.com' },
   {
@@ -52,9 +69,54 @@ const showcases: ShowcaseObject[] = [
     url: 'https://dokploy.com',
   },
   {
-    image: '/showcases/next-faq.png',
-    name: 'Next.js Discord Common Questions',
-    url: 'https://nextjs-faq.com',
+    image: '/showcases/ultracite.jpg',
+    name: 'Ultracite',
+    url: 'https://ultracite.ai',
+  },
+  {
+    image: '/showcases/sim.png',
+    name: 'Sim',
+    url: 'https://sim.ai',
+  },
+  {
+    image: '/showcases/agentskit.png',
+    name: 'AgentsKit',
+    url: 'https://www.agentskit.io',
+  },
+  {
+    image: '/showcases/generative-a11y.png',
+    name: 'generative-a11y',
+    url: 'https://generativea11y.com',
+  },
+  {
+    image: '/showcases/openpost.png',
+    name: 'OpenPost',
+    url: 'https://docs.openpo.st',
+  },
+  {
+    image: '/showcases/comfydeploy.png',
+    name: 'ComfyDeploy',
+    url: 'https://comfydeploy.com',
+  },
+  {
+    image: '/showcases/conductor.png',
+    name: 'Conductor',
+    url: 'https://conductor.build/docs',
+  },
+  {
+    image: '/showcases/cossistant.png',
+    name: 'Cossistant',
+    url: 'https://cossistant.com',
+  },
+  {
+    image: '/showcases/llm-gateway.png',
+    name: 'LLM Gateway',
+    url: 'https://llmgateway.io',
+  },
+  {
+    image: '/showcases/nativewind.png',
+    name: 'Nativewind',
+    url: 'https://www.nativewind.dev',
   },
   {
     image: ArkType,
@@ -67,9 +129,29 @@ const showcases: ShowcaseObject[] = [
     url: 'https://docs.zen-browser.app',
   },
   {
+    image: '/showcases/hero-ui.png',
+    name: 'Hero UI',
+    url: 'https://v3.heroui.com',
+  },
+  {
+    image: '/showcases/documenso.png',
+    name: 'Documenso',
+    url: 'https://docs.documenso.com',
+  },
+  {
+    image: '/showcases/mrscraper.png',
+    name: 'MrScraper',
+    url: 'https://docs.mrscraper.com',
+  },
+  {
     image: '/showcases/hiro.png',
     name: 'Hiro',
     url: 'https://docs.hiro.so/stacks',
+  },
+  {
+    image: '/showcases/next-faq.png',
+    name: 'Next.js Discord Common Questions',
+    url: 'https://nextjs-faq.com',
   },
   {
     image: OpenPanel,
@@ -77,9 +159,34 @@ const showcases: ShowcaseObject[] = [
     url: 'https://openpanel.dev',
   },
   {
+    image: '/showcases/animate-ui.png',
+    name: 'Animate UI',
+    url: 'https://animate-ui.com',
+  },
+  {
+    image: '/showcases/sora-ui.png',
+    name: 'Sora UI',
+    url: 'https://ui.soralabs.studio',
+  },
+  {
+    image: '/showcases/kibo-ui.jpg',
+    name: 'Kibo UI',
+    url: 'https://kibo-ui.com',
+  },
+  {
     image: '/showcases/hexta-ui.png',
     name: 'HextaUI',
     url: 'https://hextaui.com',
+  },
+  {
+    image: MixSpace,
+    name: 'MixSpace',
+    url: 'https://mx-space.js.org',
+  },
+  {
+    image: '/showcases/libra.png',
+    name: 'Libra',
+    url: 'https://libra.dev',
   },
   {
     image: Sunar,
@@ -87,15 +194,36 @@ const showcases: ShowcaseObject[] = [
     url: 'https://sunar.js.org',
   },
   {
+    image: '/showcases/freestyle.png',
+    name: 'Freestyle',
+    url: 'https://freestyle.sh',
+  },
+  {
+    image: '/showcases/zap-studio.png',
+    name: 'Zap Studio',
+    url: 'https://zapstudio.dev',
+  },
+  {
     image: VisionUI,
     name: 'Vision UI',
     url: 'https://vision.uing.dev',
   },
   {
-    image: MixSpace,
-    name: 'MixSpace',
-    url: 'https://mx-space.js.org',
+    image: '/showcases/yamlresume.png',
+    name: 'YAMLResume',
+    url: 'https://yamlresume.dev',
   },
+  {
+    image: '/showcases/kaneo.png',
+    name: 'Kaneo',
+    url: 'https://kaneo.app',
+  },
+  {
+    image: '/showcases/axionjs.jpg',
+    name: 'axion/js',
+    url: 'https://axionjs.com',
+  },
+
   {
     image: '/showcases/codehike.png',
     name: 'CodeHike',
@@ -105,6 +233,11 @@ const showcases: ShowcaseObject[] = [
     image: AssistantUI,
     name: 'assistant-ui',
     url: 'https://assistant-ui.com',
+  },
+  {
+    image: '/showcases/constatic.png',
+    name: 'Constatic',
+    url: 'https://constatic-docs.vercel.app',
   },
   {
     image: Supastarter,
@@ -117,9 +250,24 @@ const showcases: ShowcaseObject[] = [
     url: 'https://expostarter.com/docs',
   },
   {
+    image: '/showcases/nxjs.png',
+    name: 'nx.js',
+    url: 'https://nxjs.n8.io',
+  },
+  {
     image: TurboStarter,
     name: 'TurboStarter',
     url: 'https://turbostarter.dev',
+  },
+  {
+    name: 'ModelFetch',
+    url: 'https://modelfetch.com',
+    image: '/showcases/modelfetch.png',
+  },
+  {
+    image: '/showcases/fashnai.png',
+    name: 'FasnAI',
+    url: 'https://fashn.ai',
   },
   {
     name: 'Dirstarter',
@@ -138,8 +286,29 @@ const showcases: ShowcaseObject[] = [
     url: 'https://eslint-react.xyz',
   },
   {
+    name: 'Llamaindex',
+    url: 'https://ts.llamaindex.ai',
+  },
+  {
+    name: 'Clojure Stack Lite',
+    url: 'https://stack.bogoyavlensky.com',
+  },
+  {
+    name: 'BProgress',
+    url: 'https://bprogress.vercel.app',
+  },
+  {
     name: 'nextjs i18n docs',
     url: 'https://nextjs.im',
+  },
+  {
+    name: 'Yeecord',
+    url: 'https://yeecord.com',
+  },
+  {
+    image: '/showcases/arkenv.png',
+    name: 'ArkEnv',
+    url: 'https://arkenv.js.org',
   },
 ];
 
@@ -155,6 +324,11 @@ const blogs: ShowcaseObject[] = [
   {
     name: 'stutuer',
     url: 'https://www.stutuer.tech',
+  },
+  {
+    image: HexaasBlog,
+    name: "hexaa's blog",
+    url: 'https://hexaa.sh/blog',
   },
 ];
 
@@ -175,14 +349,11 @@ const vercel = [
 
 export default function Showcase() {
   return (
-    <main className="px-4 py-12 z-[2] w-full max-w-[1400px] mx-auto [--color-fd-border:color-mix(in_oklab,var(--color-fd-primary)_30%,transparent)]">
+    <main className="px-4 py-12 z-2 w-full max-w-350 mx-auto **:border-neutral-400 dark:**:border-neutral-700">
       <div className="relative overflow-hidden border border-dashed p-6">
-        <h1 className="mb-4 text-xl font-medium">
-          The docs framework designed with care.
-        </h1>
+        <h1 className="mb-4 text-xl font-medium">The docs framework designed with care.</h1>
         <p className="text-fd-muted-foreground">
-          A list of beautiful open-source projects with their docs powered by
-          Fumadocs.
+          A list of beautiful open-source projects with their docs powered by Fumadocs.
         </p>
         <div className="mt-6">
           <a
@@ -206,7 +377,7 @@ export default function Showcase() {
           src={Design}
           alt="preview"
           priority
-          className="ml-auto w-[600px] min-w-[600px] -mt-12 -mb-18 pointer-events-none select-none"
+          className="ml-auto w-150 min-w-150 -mt-12 -mb-18 pointer-events-none select-none"
         />
       </div>
 
@@ -218,10 +389,7 @@ export default function Showcase() {
           viewBox="0 0 74 64"
           className="size-6 mt-1"
         >
-          <path
-            d="M37.5896 0.25L74.5396 64.25H0.639648L37.5896 0.25Z"
-            fill="currentColor"
-          />
+          <path d="M37.5896 0.25L74.5396 64.25H0.639648L37.5896 0.25Z" fill="currentColor" />
         </svg>
         <div>
           <h2 className="text-sm font-medium mb-2">
@@ -236,8 +404,8 @@ export default function Showcase() {
                   buttonVariants({
                     variant: 'link',
                     size: 'xs',
+                    className: 'text-brand',
                   }),
-                  'text-fd-muted-foreground',
                 )}
               >
                 {item.name}
@@ -250,7 +418,7 @@ export default function Showcase() {
         {showcases.map((showcase) => (
           <ShowcaseItem key={showcase.url} {...showcase} />
         ))}
-        <div className="absolute text-center bottom-0 inset-x-0 pt-4 bg-gradient-to-t from-fd-background">
+        <div className="absolute text-center bottom-0 inset-x-0 pt-4 bg-linear-to-t from-fd-background">
           <Link
             href="https://github.com/fuma-nama/fumadocs/discussions/30"
             className={cn(
@@ -264,9 +432,7 @@ export default function Showcase() {
           </Link>
         </div>
       </div>
-      <h2 className="text-xl font-medium mt-12 px-4">
-        Fumadocs can power your blog, too.
-      </h2>
+      <h2 className="text-xl font-medium mt-12 px-4">Fumadocs can power your blog, too.</h2>
       <div className="mt-6 grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {blogs.map((showcase) => (
           <ShowcaseItem key={showcase.url} {...showcase} />
@@ -292,7 +458,7 @@ function ShowcaseItem({ name, url, image }: ShowcaseObject) {
           sizes="100vw, (min-width: 750px) 500px"
           className="object-cover transition-all group-hover:brightness-150"
         />
-        <p className="absolute bottom-0 inset-x-0 z-[2] bg-fd-background px-4 py-2 text-sm font-medium">
+        <p className="absolute bottom-0 inset-x-0 z-2 bg-fd-background px-4 py-2 text-sm font-medium">
           {name}
         </p>
       </a>
@@ -306,9 +472,7 @@ function ShowcaseItem({ name, url, image }: ShowcaseObject) {
       rel="noreferrer noopener"
       className="flex aspect-[1.91/1] flex-col border border-dashed p-4 transition-all hover:bg-fd-accent"
     >
-      <p className="font-mono text-xs mb-2 text-fd-muted-foreground">
-        {new URL(url).hostname}
-      </p>
+      <p className="font-mono text-xs mb-2 text-fd-muted-foreground">{new URL(url).hostname}</p>
       <p className="text-xl font-medium">{name}</p>
     </a>
   );

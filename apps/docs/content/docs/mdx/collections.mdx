@@ -39,17 +39,13 @@ export const metaFiles = defineCollections({
 
   Accept JSON/YAML files, available options:
 
-  <AutoTypeTable path="./content/docs/mdx/props.ts" name="MetaCollection" />
+  <auto-type-table path="./props.ts" name="MetaCollection" />
 
 - `type: doc`
 
   Markdown/MDX documents, available options:
 
-  <AutoTypeTable path="./content/docs/mdx/props.ts" name="DocCollection" />
-
-### `dir`
-
-Directories to scan for input files.
+  <auto-type-table path="./props.ts" name="DocCollection" />
 
 ### `schema`
 
@@ -94,10 +90,12 @@ export const blog = defineCollections({
 
 ### `mdxOptions`
 
-Customise MDX options at the collection level.
+Customize MDX options at the collection level.
+
+> This API is only available on `doc` type.
 
 ```ts title="source.config.ts"
-import { defineCollections, getDefaultMDXOptions } from 'fumadocs-mdx/config';
+import { defineCollections } from 'fumadocs-mdx/config';
 
 export const blog = defineCollections({
   type: 'doc',
@@ -110,20 +108,95 @@ export const blog = defineCollections({
 By design, this will remove all default settings applied by your global config and Fumadocs MDX.
 You have full control over MDX options.
 
-You can use `getDefaultMDXOptions` to apply default configurations, it accepts the [extended MDX Options](/docs/mdx/mdx#extended).
+You can use [`applyMdxPreset`](/docs/mdx/mdx) to apply the default MDX preset.
 
 ```ts title="source.config.ts"
-import { defineCollections, getDefaultMDXOptions } from 'fumadocs-mdx/config';
+import { defineCollections } from 'fumadocs-mdx/config';
 
 export const blog = defineCollections({
   type: 'doc',
-  mdxOptions: getDefaultMDXOptions({
-    // extended mdx options
+  mdxOptions: applyMdxPreset({
+    // extend the preset
   }),
 });
 ```
 
+### `postprocess`
+
 > This API is only available on `doc` type.
+
+You can pass build-time information to runtime using the `postprocess` API.
+
+- #### `includeProcessedMarkdown`
+
+  Include the processed Markdown content (before being converted into HTML).
+
+  ```ts tab="docs"
+  import { defineDocs } from 'fumadocs-mdx/config';
+
+  export default defineDocs({
+    docs: {
+      postprocess: {
+        // [!code ++]
+        includeProcessedMarkdown: true,
+      },
+    },
+  });
+  ```
+
+  ```ts tab="doc"
+  import { defineCollections } from 'fumadocs-mdx/config';
+
+  export const blog = defineCollections({
+    type: 'doc',
+    postprocess: {
+      // [!code ++]
+      includeProcessedMarkdown: true,
+    },
+  });
+  ```
+
+  `getText('processed')` is the recommended way to obtain it (e.g. with `loader()`):
+
+  ```ts
+  import { source } from '@/lib/source';
+
+  const page = source.getPage('...');
+  console.log(await page.data.getText('processed'));
+  ```
+
+  See [available options](/docs/headless/mdx/remark-llms).
+
+- #### `valueToExport`
+
+  Some remark plugins store their output in `vfile.data` (compile-time memory) which cannot be accessed from your code.
+
+  You can specify the name of properties to include, they will get converted into ESM exports that you can access when importing the MDX file.
+
+  ```ts tab="docs"
+  import { defineDocs } from 'fumadocs-mdx/config';
+
+  export default defineDocs({
+    docs: {
+      postprocess: {
+        // [!code ++]
+        valueToExport: ['dataName'],
+      },
+    },
+  });
+  ```
+
+  ```ts tab="doc"
+  import { defineCollections } from 'fumadocs-mdx/config';
+
+  export const blog = defineCollections({
+    type: 'doc',
+    postprocess: {
+      // [!code ++]
+      valueToExport: ['dataName'],
+    },
+  });
+  ```
 
 ## Define Docs
 
@@ -145,27 +218,28 @@ export const docs = defineDocs({
 
 ### `dir`
 
-Instead of per collection, you should customise `dir` from `defineDocs`:
+Instead of per collection, you should customize content directory from `defineDocs`:
 
 ```ts
 import { defineDocs } from 'fumadocs-mdx/config';
 
 export const docs = defineDocs({
-  dir: 'my/content/dir',
+  dir: 'content/guides',
 });
 ```
 
 ### `schema`
 
-You can extend the default Zod schema of `docs` and `meta`.
+You can extend the default Zod 4 schema of `docs` and `meta`.
 
 ```ts
-import { frontmatterSchema, metaSchema, defineDocs } from 'fumadocs-mdx/config';
+import { defineDocs } from 'fumadocs-mdx/config';
+import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
 import { z } from 'zod';
 
 export const docs = defineDocs({
   docs: {
-    schema: frontmatterSchema.extend({
+    schema: pageSchema.extend({
       index: z.boolean().default(false),
     }),
   },

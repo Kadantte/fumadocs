@@ -2,9 +2,12 @@ import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { ValidationError } from '@/utils/schema';
-import { generateJS } from '@/map/generate';
-import { defineCollections } from '@/config';
+import { ValidationError } from '@/utils/validation';
+import { defineCollections, defineConfig, defineDocs } from '@/config';
+import { buildConfig } from '@/config/build';
+import { createCore } from '@/core';
+import indexFile from '@/plugins/index-file';
+import lastModified from '@/plugins/last-modified';
 
 test('format errors', async () => {
   const schema = z.object({
@@ -28,52 +31,173 @@ test('format errors', async () => {
     const error = new ValidationError('in index.mdx:', result.issues);
 
     expect(error.toString()).toMatchInlineSnapshot(`
-      "in index.mdx::
-        text: Expected string, received number
-        obj,key: Required
-        obj,value: Expected number, received string
-        value: String must contain at most 4 character(s)"
+      "Error: in index.mdx::
+        text: Invalid input: expected string, received number
+        obj,key: Invalid input: expected number, received undefined
+        obj,value: Invalid input: expected number, received string
+        value: Too big: expected string to have <=4 characters"
     `);
   }
 });
 
-const file = path.dirname(fileURLToPath(import.meta.url));
-
-const cases = [
+const baseDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.join(baseDir, '../../..');
+const fixtureDir = path.join(baseDir, 'fixtures');
+const cases: {
+  name: string;
+  config: Record<string, unknown>;
+}[] = [
   {
     name: 'sync',
-    collection: defineCollections({
-      type: 'doc',
-      dir: path.join(file, './fixtures'),
-    }),
+    config: {
+      docs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+      }),
+      blogs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+        postprocess: {
+          extractLinkReferences: true,
+        },
+      }),
+      default: defineConfig({
+        plugins: [
+          lastModified({
+            versionControl: async () => new Date('2025-11-18'),
+          }),
+        ],
+      }),
+    },
+  },
+  {
+    name: 'sync-meta',
+    config: {
+      docs: defineCollections({
+        type: 'meta',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+      }),
+    },
   },
   {
     name: 'async',
-    collection: defineCollections({
-      type: 'doc',
-      dir: path.join(file, './fixtures'),
-      async: true,
-    }),
+    config: {
+      docs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+        async: true,
+      }),
+      blogs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+        postprocess: {
+          extractLinkReferences: true,
+        },
+        async: true,
+      }),
+    },
+  },
+  {
+    name: 'dynamic',
+    config: {
+      docs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+        dynamic: true,
+      }),
+      blogs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+        postprocess: {
+          extractLinkReferences: true,
+        },
+        dynamic: true,
+      }),
+    },
+  },
+  {
+    name: 'dynamic-docs',
+    config: {
+      docs: defineDocs({
+        dir: path.join(baseDir, './fixtures/generate-index-docs'),
+        docs: {
+          dynamic: true,
+        },
+      }),
+    },
+  },
+  {
+    name: 'workspace',
+    config: {
+      docs: defineCollections({
+        type: 'doc',
+        dir: path.join(baseDir, './fixtures/generate-index'),
+      }),
+      default: defineConfig({
+        workspaces: {
+          test: {
+            dir: path.join(baseDir, './fixtures/generate-index-2'),
+            config: {
+              docs: defineCollections({
+                type: 'doc',
+                dir: '.',
+                async: true,
+              }),
+            },
+          },
+        },
+      }),
+    },
   },
 ];
 
-for (const { name, collection } of cases) {
+for (const { name, config } of cases) {
   test(`generate JS index file: ${name}`, async () => {
-    const out = await generateJS(
-      path.join(file, './fixtures/config.ts'),
-      {
-        _runtime: {
-          files: new Map(),
-        },
-        // @ts-expect-error -- test file
-        collections: new Map([['docs', collection]]),
-      },
-      path.join(file, './fixtures/index-async.output.js'),
-      'hash',
-    );
+    const prevCwd = process.cwd();
+    process.chdir(repoRoot);
+    try {
+      const core = createCore({
+        configPath: path.relative(repoRoot, path.join(fixtureDir, 'config.ts')),
+        environment: 'test',
+        outDir: path.relative(repoRoot, fixtureDir),
+        plugins: [indexFile()],
+      });
 
-    await expect(out.replaceAll(process.cwd(), '$cwd')).toMatchFileSnapshot(
-      `./fixtures/index-${name}.output.js`,
-    );
+      await core.init({
+        config: buildConfig(config, repoRoot),
+      });
+
+      const { entries, workspaces } = await core.emit();
+      for (const [name, workspace] of Object.entries(workspaces)) {
+        for (const item of workspace) {
+          item.path = path.join(name, item.path);
+          entries.push(item);
+        }
+      }
+      const markdown = entries
+        .map((entry) => `\`\`\`ts title="${entry.path}"\n${entry.content}\n\`\`\``)
+        .join('\n\n');
+
+      if (name === 'dynamic') {
+        expect(markdown).toContain(`import path from 'node:path';`);
+        expect(markdown).toContain(
+          'create.doc("docs", "packages/mdx/test/fixtures/generate-index", [',
+        );
+        expect(markdown).toContain(
+          'create.doc("blogs", "packages/mdx/test/fixtures/generate-index", [',
+        );
+      }
+
+      if (name === 'dynamic-docs') {
+        expect(markdown).toContain(`import path from 'node:path';`);
+        expect(markdown).toMatch(
+          /create\.docs\("docs", "packages\/mdx\/test\/fixtures\/generate-index-docs", [\s\S]+, \[/,
+        );
+      }
+
+      await expect(markdown).toMatchFileSnapshot(`./fixtures/index-${name}.output.md`);
+    } finally {
+      process.chdir(prevCwd);
+    }
   });
 }

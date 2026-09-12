@@ -2,18 +2,8 @@ import Slugger from 'github-slugger';
 import type { Heading, Root } from 'mdast';
 import type { Transformer } from 'unified';
 import { visit } from 'unist-util-visit';
-import type { TOCItemType } from '@/server/get-toc';
-import { flattenNode } from '@/mdx-plugins/remark-utils';
-
-const slugger = new Slugger();
-
-declare module 'mdast' {
-  export interface HeadingData extends Data {
-    hProperties?: {
-      id?: string;
-    };
-  }
-}
+import type { TOCItemType } from '@/toc';
+import { flattenNode } from '@/mdx-plugins/utils';
 
 const regex = /\s*\[#(?<slug>[^]+?)]\s*$/;
 
@@ -35,49 +25,60 @@ export interface RemarkHeadingOptions {
   generateToc?: boolean;
 }
 
+declare module 'vfile' {
+  interface DataMap {
+    /**
+     * [Fumadocs: remark-heading] output data.
+     */
+    toc?: TOCItemType[];
+  }
+}
+
 /**
  * Add heading ids and extract TOC
  */
 export function remarkHeading({
-  slug: defaultSlug,
+  slug,
   customId = true,
   generateToc = true,
 }: RemarkHeadingOptions = {}): Transformer<Root, Root> {
+  let slugger: Slugger | undefined;
+
+  if (!slug) {
+    slugger = new Slugger();
+    slug = (_root, _heading, text) => slugger!.slug(text);
+  }
+
   return (root, file) => {
     const toc: TOCItemType[] = [];
-    slugger.reset();
+    slugger?.reset();
 
     visit(root, 'heading', (heading) => {
       heading.data ||= {};
       heading.data.hProperties ||= {};
+      const props = heading.data.hProperties;
 
-      let id = heading.data.hProperties.id;
       const lastNode = heading.children.at(-1);
-
-      if (!id && lastNode?.type === 'text' && customId) {
+      if (lastNode?.type === 'text' && customId) {
         const match = regex.exec(lastNode.value);
 
         if (match?.[1]) {
-          id = match[1];
+          props.id = match[1];
           lastNode.value = lastNode.value.slice(0, match.index);
         }
       }
 
       let flattened: string | null = null;
-      if (!id) {
+      if (!props.id) {
         flattened ??= flattenNode(heading);
 
-        id = defaultSlug
-          ? defaultSlug(root, heading, flattened)
-          : slugger.slug(flattened);
+        props.id = slug(root, heading, flattened);
       }
-
-      heading.data.hProperties.id = id;
 
       if (generateToc) {
         toc.push({
           title: flattened ?? flattenNode(heading),
-          url: `#${id}`,
+          url: `#${props.id}`,
           depth: heading.depth,
         });
       }

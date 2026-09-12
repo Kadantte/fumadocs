@@ -1,7 +1,7 @@
 import { type Transformer } from 'unified';
 import { visit } from 'unist-util-visit';
 import { type Root, type RootContent } from 'mdast';
-import { flattenNode } from '@/mdx-plugins/remark-utils';
+import { flattenNode } from '@/mdx-plugins/utils';
 
 export interface RemarkAdmonitionOptions {
   tag?: string;
@@ -16,10 +16,10 @@ export interface RemarkAdmonitionOptions {
  * Remark Plugin to support Admonition syntax
  *
  * Useful when Migrating from Docusaurus
+ *
+ * @deprecated Use `remarkDirectiveAdmonition` with `remark-directive` configured instead.
  */
-export function remarkAdmonition(
-  options: RemarkAdmonitionOptions = {},
-): Transformer<Root, Root> {
+export function remarkAdmonition(options: RemarkAdmonitionOptions = {}): Transformer<Root, Root> {
   const tag = options.tag ?? ':::';
   // compatible with Docusaurus
   const typeMap = options.typeMap ?? {
@@ -44,9 +44,7 @@ export function remarkAdmonition(
       if (nodes[i].type !== 'paragraph') continue;
 
       const text = flattenNode(nodes[i]);
-      const typeName = Object.keys(typeMap).find((type) =>
-        text.startsWith(`${tag}${type}`),
-      );
+      const typeName = Object.keys(typeMap).find((type) => text.startsWith(`${tag}${type}`));
 
       if (typeName) {
         if (open !== -1) {

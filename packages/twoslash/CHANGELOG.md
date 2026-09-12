@@ -1,4 +1,186 @@
+## fumadocs-twoslash@4.0.0
+
+### Run Twoslash on TypeScript 7
+
+`fumadocs-twoslash` now runs on the native TypeScript 7 compiler (`typescript/unstable/sync`) instead of bundling its own TypeScript 6, so the types in popups come from the same compiler as your project.
+
+Code blocks of documents compiled concurrently are analyzed together in one snapshot of the TypeScript project (requires `fumadocs-core` 16.15.7 for the `_fd_prepare` hook of `rehype-code`), which removes most of the per-block cost of loading the project. Cold builds of the Fumadocs docs take 40% less time in total, with the TypeScript part 3.5x faster.
+
+The Shiki transformer and renderer are now implemented in `fumadocs-twoslash`, `@shikijs/twoslash` and `twoslash` are no longer dependencies (nor `twoslash` a peer of TypeScript 6). The rendered HTML and the transformer options are unchanged, except that `rendererRich` only takes the options that apply to the popups of Fumadocs (`jsdoc`, `processHoverInfo`, `processHoverDocs`, `completionIcons`, `customTagIcons`); the `hast` extensions, `errorRendering`, `queryRendering`, `classExtra` and the custom `renderer` option are removed.
+
+The `twoslashOptions` are simplified to what the native API supports:
+
+- `compilerOptions` takes `tsconfig.json` values (e.g. `moduleResolution: 'bundler'`) instead of enum values from the `typescript` package.
+- `cwd` replaces `vfsRoot`.
+- `tsModule`, `tsLibDirectory`, `fsMap`, `cache`, `customTransformers` and the per-call `positionQueries`, `positionCompletions`, `positionHighlights` are removed.
+- `@showEmit` is not supported, TypeScript 7 has no emit API yet.
+
+```ts
+transformerTwoslash({
+  twoslashOptions: {
+    compilerOptions: {
+      types: ['node'],
+    },
+  },
+});
+```
+
+## fumadocs-twoslash@3.3.1
+
+### Replace `cnfast` with `cn`
+
+Internal refactor only.
+
+### Bundle TypeScript for Twoslash
+
+`fumadocs-twoslash` now depends on its own TypeScript 6 and passes it to Twoslash, so the transformer keeps working in projects on TypeScript 7 (whose package no longer provides the compiler API Twoslash requires). Previously, every Twoslash code block that was not already in the types cache failed with `Cannot read properties of undefined (reading 'readFile')`.
+
+## fumadocs-twoslash@3.3.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
+## fumadocs-twoslash@3.2.1
+
+### Migrate to `cnfast`
+
+Drop `tailwind-merge`.
+
 # fumadocs-twoslash
+
+## 3.2.0
+
+### Minor Changes
+
+- 9cf33e9: Support lazy loading with `rehype-code`
+
+### Patch Changes
+
+- Updated dependencies [f2c6e59]
+- Updated dependencies [9cf33e9]
+- Updated dependencies [9cf33e9]
+  - fumadocs-ui@16.7.16
+  - fumadocs-core@16.7.16
+
+## 3.1.17
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - fumadocs-ui@16.7.14
+
+## 3.1.16
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - fumadocs-ui@16.7.13
+
+## 3.1.15
+
+### Patch Changes
+
+- da50bc3: Force default options for TypeScript 6
+
+## 3.1.14
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - fumadocs-ui@16.6.8
+
+## 3.1.13
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-ui@16.5.2
+
+## 3.1.12
+
+### Patch Changes
+
+- cdc97e0: Improve experience with Shiki Twoslash
+- Updated dependencies [c804ac6]
+  - fumadocs-ui@16.4.4
+
+## 3.1.11
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [b16a32f]
+  - fumadocs-ui@16.4.2
+
+## 3.1.10
+
+### Patch Changes
+
+- 7c7e984: Fix accessibility: Replace span with button for twoslash hover triggers to resolve critical aria-allowed-attr violations
+- bc97236: bump deps
+- Updated dependencies [c0df2c4]
+- Updated dependencies [117ad86]
+  - fumadocs-ui@16.0.8
+
+## 3.1.9
+
+### Patch Changes
+
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [1494340]
+- Updated dependencies [de0ce6d]
+- Updated dependencies [0ed0ca6]
+- Updated dependencies [5210f18]
+- Updated dependencies [42f09c3]
+- Updated dependencies [5966e23]
+  - fumadocs-ui@16.0.0
+
+## 3.1.8
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+- Updated dependencies [7b0d839]
+  - fumadocs-ui@15.8.3
+
+## 3.1.7
+
+### Patch Changes
+
+- a76d244: Fix breaking types change from upstream 3.12.0
+- Updated dependencies [cedc494]
+  - fumadocs-ui@15.7.5
+
+## 3.1.6
+
+### Patch Changes
+
+- 51e6687: Fix popup container styles
+- Updated dependencies [6de6ff3]
+- Updated dependencies [f0b1fee]
+  - fumadocs-ui@15.6.11
+
+## 3.1.5
+
+### Patch Changes
+
+- c6153d4: Improve rendered result
+
+## 3.1.4
+
+### Patch Changes
+
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
+- Updated dependencies [b675728]
+- Updated dependencies [1b7bc4b]
+- Updated dependencies [82fc4c8]
+  - fumadocs-ui@15.5.2
 
 ## 3.1.3
 
@@ -101,17 +283,17 @@
   Before:
 
   ```ts
-  import 'fumadocs-ui/twoslash.css';
+  import "fumadocs-ui/twoslash.css";
 
-  import { Popup } from 'fumadocs-ui/twoslash/popup';
+  import { Popup } from "fumadocs-ui/twoslash/popup";
   ```
 
   After:
 
   ```ts
-  import 'fumadocs-twoslash/twoslash.css';
+  import "fumadocs-twoslash/twoslash.css";
 
-  import { Popup } from 'fumadocs-twoslash/ui';
+  import { Popup } from "fumadocs-twoslash/ui";
   ```
 
   **Tailwind CSS is now required for Twoslash integration.**

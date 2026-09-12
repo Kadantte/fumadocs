@@ -1,27 +1,7 @@
 {
-  "title": "Framework",
-  "description": "The docs framework",
-  "icon": "Building",
+  "title": "Fumadocs UI",
+  "description": "The default theme",
+  "icon": "PanelsTopLeft",
   "root": true,
-  "pages": [
-    "---Introduction---",
-    "index",
-    "what-is-fumadocs",
-    "comparisons",
-    "---Setup---",
-    "manual-installation",
-    "...",
-    "(integrations)",
-    "---Writing---",
-    "page-conventions",
-    "markdown",
-    "navigation",
-    "---UI---",
-    "customisation",
-    "theme",
-    "search",
-    "components",
-    "mdx",
-    "layouts"
-  ]
+  "pages": ["---Introduction---", "index", "component-library", "theme", "---References---", "..."]
 }

@@ -1,14 +1,20 @@
-import { createMDXSource } from 'fumadocs-mdx';
 import { loader } from 'fumadocs-core/source';
-import { attachFile, createOpenAPI } from 'fumadocs-openapi/server';
-import { docs, meta } from '@/.source';
+import { openapi } from './openapi';
+import { defineDocs } from 'fumadocs-mdx/macro';
 
-export const source = loader({
-  baseUrl: '/docs',
-  source: createMDXSource(docs, meta),
-  pageTree: {
-    attachFile,
-  },
+const docs = defineDocs({
+  dir: 'content/docs',
 });
 
-export const openapi = createOpenAPI();
+export const source = loader(
+  {
+    docs: docs.toFumadocsSource(),
+    openapi: await openapi.staticSource({
+      groupBy: 'tag',
+    }),
+  },
+  {
+    baseUrl: '/docs',
+    plugins: [openapi.loaderPlugin()],
+  },
+);

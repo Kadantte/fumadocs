@@ -1,43 +1,53 @@
-import type { SortedResult } from '@/server';
+import type { SortedResult } from '@/search';
+import type { SearchClient } from '../client';
+import { BASE_PATH, join } from '@/utils/url';
 
 export interface FetchOptions {
   /**
-   * API route for search endpoint
+   * API route for search endpoint, support absolute URLs.
    *
    * @defaultValue '/api/search'
    */
   api?: string;
 
   /**
-   * Filter results with specific tag.
+   * Filter results with specific tag(s).
    */
-  tag?: string;
+  tag?: string | string[];
 
   /**
    * Filter by locale
    */
   locale?: string;
+
+  cache?: Map<string, SortedResult[]>;
 }
 
-const cache = new Map<string, SortedResult[]>();
+const globalCache = new Map();
 
-export async function fetchDocs(
-  query: string,
-  { api = '/api/search', locale, tag }: FetchOptions,
-): Promise<SortedResult[]> {
-  const params = new URLSearchParams();
-  params.set('query', query);
-  if (locale) params.set('locale', locale);
-  if (tag) params.set('tag', tag);
+export function fetchClient({
+  api = join(BASE_PATH, '/api/search'),
+  locale,
+  tag,
+  cache = globalCache,
+}: FetchOptions = {}): SearchClient {
+  return {
+    deps: [api, locale, tag],
+    async search(query) {
+      const url = new URL(api, window.location.origin);
+      url.searchParams.set('query', query);
+      if (locale) url.searchParams.set('locale', locale);
+      if (tag) url.searchParams.set('tag', Array.isArray(tag) ? tag.join(',') : tag);
 
-  const key = `${api}?${params}`;
-  const cached = cache.get(key);
-  if (cached) return cached;
+      const key = url.toString();
+      const cached = cache.get(key);
+      if (cached) return cached;
 
-  const res = await fetch(key);
-
-  if (!res.ok) throw new Error(await res.text());
-  const result = (await res.json()) as SortedResult[];
-  cache.set(key, result);
-  return result;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(await res.text());
+      const result = (await res.json()) as SortedResult[];
+      cache.set(key, result);
+      return result;
+    },
+  };
 }

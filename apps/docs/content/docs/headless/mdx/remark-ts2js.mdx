@@ -7,24 +7,12 @@ description: A remark plugin to transform TypeScript codeblocks into two tabs of
 
 Install dependencies:
 
-```package-install
-fumadocs-docgen oxc-transform
+```npm tab="Fumadocs MDX"
+npm i fumadocs-docgen
 ```
 
-Add `oxc-transform` to `serverExternalPackages` in `next.config.mjs`:
-
-```js title="next.config.mjs"
-import { createMDX } from 'fumadocs-mdx/next';
-
-/** @type {import('next').NextConfig} */
-const config = {
-  reactStrictMode: true,
-  serverExternalPackages: ['oxc-transform'],
-};
-
-const withMDX = createMDX();
-
-export default withMDX(config);
+```npm tab="Satteri"
+npm i @fumadocs/satteri
 ```
 
 Add the remark plugin:
@@ -40,6 +28,21 @@ export default defineConfig({
 });
 ```
 
+```ts title="source.config.ts" tab="Satteri"
+import { remarkTs2js } from '@fumadocs/satteri/remark-ts2js';
+
+export default defineConfig({
+  docs: {
+    compiler: 'satteri',
+    async satteriOptions() {
+      return {
+        mdastPlugins: [remarkTs2js()],
+      };
+    },
+  },
+});
+```
+
 ```ts tab="MDX Compiler"
 import { remarkTypeScriptToJavaScript } from 'fumadocs-docgen/remark-ts2js';
 import { compile } from '@mdx-js/mdx';
@@ -51,18 +54,19 @@ await compile('...', {
 
 Finally, make sure to define the required MDX components: `Tabs` and `Tab`.
 
-```tsx title="mdx-components.tsx (Fumadocs UI)"
+```tsx title="components/mdx.tsx (Fumadocs UI)"
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import defaultComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
 
-export function getMDXComponents(components?: MDXComponents): MDXComponents {
+export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultComponents,
+    // [!code ++:2]
     Tab,
     Tabs,
     ...components,
-  };
+  } satisfies MDXComponents;
 }
 ```
 

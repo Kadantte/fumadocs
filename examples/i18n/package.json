@@ -1,25 +1,26 @@
 {
   "name": "example-i18n",
-  "version": "0.0.0",
+  "version": "0.0.28",
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --turbo",
-    "start": "next start"
+    "dev": "next dev",
+    "start": "next start",
+    "types:check": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@orama/tokenizers": "^3.1.6",
+    "@fumadocs/language": "workspace:*",
     "fumadocs-core": "workspace:*",
     "fumadocs-mdx": "workspace:*",
-    "fumadocs-ui": "workspace:*",
-    "next": "15.3.3",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "fumadocs-ui": "workspace:@fumadocs/base-ui@*",
+    "next": "16.3.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@types/mdx": "^2.0.13",
-    "@types/react": "^19.1.6",
-    "@types/react-dom": "^19.1.5",
-    "typescript": "^5.8.3"
+    "@types/mdx": "^2.0.14",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "typescript": "^7.0.2"
   }
 }

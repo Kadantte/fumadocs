@@ -1,14 +1,13 @@
 'use client';
-import { cn } from 'fumadocs-ui/utils/cn';
+import { cn } from '@/utils/cn';
 import { buttonVariants } from 'fumadocs-ui/components/ui/button';
-import {
-  ApiClientModalProvider,
-  useApiClientModal,
-} from '@scalar/api-client-react';
+import { useApiClient } from '@scalar/api-client-react';
 import { MethodLabel } from '@/ui/components/method-label';
-import { useTheme } from 'next-themes';
+import { useTheme } from 'fumadocs-ui/provider/base';
 import { useEffect, useState } from 'react';
-import type { OpenAPIV3_1 } from 'openapi-types';
+import type { HttpMethods } from '@/types';
+import { useTranslations } from '@fuma-translate/react';
+import '@scalar/api-client-react/style.css';
 
 export default function ScalarPlayground({
   path,
@@ -17,10 +16,16 @@ export default function ScalarPlayground({
 }: {
   spec: object;
   path: string;
-  method: string;
+  method: HttpMethods;
 }) {
   const { resolvedTheme } = useTheme();
+  const t = useTranslations({ note: 'scalar API client' });
   const [mounted, setMounted] = useState(false);
+  const client = useApiClient({
+    configuration: {
+      content: spec as never,
+    },
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -34,38 +39,16 @@ export default function ScalarPlayground({
       )}
     >
       <MethodLabel className="text-xs">{method}</MethodLabel>
-      <code className="flex-1 overflow-auto text-nowrap text-[13px] text-fd-muted-foreground">
+      <code className="flex-1 overflow-auto text-nowrap text-[0.8125rem] text-fd-muted-foreground">
         {path}
       </code>
-      <ApiClientModalProvider
-        configuration={{
-          theme: 'moon',
-          spec: {
-            content: spec,
-          },
-        }}
+      <button
+        type="submit"
+        className={cn(buttonVariants({ color: 'primary', size: 'sm' }), 'px-3 py-1.5')}
+        onClick={() => client?.open({ path, method: method as never })}
       >
-        <Trigger path={path} method={method} />
-      </ApiClientModalProvider>
+        {t('Test')}
+      </button>
     </div>
-  );
-}
-
-function Trigger({ path, method }: { path: string; method: string }) {
-  const client = useApiClientModal();
-
-  return (
-    <button
-      type="submit"
-      className={cn(
-        buttonVariants({ color: 'primary', size: 'sm' }),
-        'px-3 py-1.5',
-      )}
-      onClick={() =>
-        client?.open({ path, method: method as OpenAPIV3_1.HttpMethods })
-      }
-    >
-      Test
-    </button>
   );
 }

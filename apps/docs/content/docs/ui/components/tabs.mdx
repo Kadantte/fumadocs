@@ -1,32 +1,35 @@
 ---
 title: Tabs
-description:
-  A Tabs component built with Radix UI, with additional features such as
+description: A Tabs component built with Base UI, with additional features such as
   persistent and shared value.
 preview: tabs
 ---
+
+import { UrlBar } from './tabs.client';
+
+<Installation name="tabs" />
 
 ## Usage
 
 Add MDX components.
 
-```tsx title="mdx-components.tsx"
+```tsx title="components/mdx.tsx"
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import * as TabsComponents from 'fumadocs-ui/components/tabs';
 import type { MDXComponents } from 'mdx/types';
 
-export function getMDXComponents(components?: MDXComponents): MDXComponents {
+export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
     ...TabsComponents, // [!code ++]
     ...components,
-  };
+  } satisfies MDXComponents;
 }
 ```
 
-And use it like:
+And use it in your MDX content:
 
-```mdx
+```mdx title="content.mdx"
 <Tabs items={['Javascript', 'Rust']}>
   <Tab value="Javascript">Javascript is weird</Tab>
   <Tab value="Rust">Rust is fast</Tab>
@@ -70,8 +73,10 @@ id.
 
 ### Persistent
 
-You can enable persistent by passing a `persist` property. The value will be
-stored in `localStorage`, with its id as the key.
+When `groupId` is specified, their value will be temporarily stored in `sessionStorage`.
+
+To persist the value, you can specify a `persist` prop. The value will be
+stored in `localStorage`, with its group ID as storage key.
 
 ```mdx
 <Tabs groupId="language" items={['Javascript', 'Rust']} persist>
@@ -79,8 +84,6 @@ stored in `localStorage`, with its id as the key.
   <Tab value="Rust">Rust is fast</Tab>
 </Tabs>
 ```
-
-> Persistent only works if you have passed an `id`.
 
 ### Default Value
 
@@ -147,7 +150,7 @@ to automatically update the URL hash whenever time a new tab is selected:
 
 ## Advanced Usage
 
-Use it in the Radix UI primitive way, see [Radix UI](https://radix-ui.com/primitives/docs/components/tabs) for more details.
+Use it in the primitive way:
 
 ```mdx
 <Tabs defaultValue="npm">

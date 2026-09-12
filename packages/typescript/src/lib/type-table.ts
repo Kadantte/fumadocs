@@ -1,6 +1,6 @@
-import * as fs from 'node:fs/promises';
-import { type GenerateOptions, type Generator } from '@/lib/base';
-import { join } from 'node:path';
+import fs from 'node:fs/promises';
+import type { GenerateOptions, Generator } from '@/lib/base';
+import path from 'node:path';
 
 export interface BaseTypeTableProps {
   /**
@@ -50,14 +50,12 @@ export async function getTypeTableOutput(
   options?: GenerateTypeTableOptions,
 ) {
   const file =
-    props.path && options?.basePath
-      ? join(options.basePath, props.path)
-      : props.path;
+    props.path && options?.basePath ? path.join(options.basePath, props.path) : props.path;
   let typeName = name;
   let content = '';
 
   if (file) {
-    content = (await fs.readFile(file)).toString();
+    content = await fs.readFile(file, 'utf-8');
   }
 
   if (type && type.split('\n').length > 1) {
@@ -67,7 +65,7 @@ export async function getTypeTableOutput(
     content += `\nexport type ${typeName} = ${type}`;
   }
 
-  const output = gen.generateDocumentation(
+  const output = await gen.generateDocumentation(
     { path: file ?? 'temp.ts', content },
     typeName,
     options,

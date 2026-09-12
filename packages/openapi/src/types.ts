@@ -1,90 +1,51 @@
-import type { OpenAPIV3_1 as V3_1 } from 'openapi-types';
-import type { default as Slugger } from 'github-slugger';
-import { type Renderer } from '@/render/renderer';
-import type { CodeSample } from '@/render/operation';
-import type {
-  BuiltinTheme,
-  CodeOptionsThemes,
-  CodeToHastOptionsCommon,
-} from 'shiki';
-import type { NoReference } from '@/utils/schema';
-import type { ProcessedDocument } from '@/utils/process-document';
-import type { MediaAdapter } from '@/media/adapter';
+import type { OpenAPIV3_2, OpenAPIV3 } from './types/openapi';
+import type { DereferencedDocument } from '@/utils/document/dereference';
+import type { OpenAPIOptions } from '@/server';
+import type { InlineCodeUsageGenerator } from './requests/generators';
+import type { CreateOpenAPIPageOptions } from './ui';
+import type { FC, ReactNode } from 'react';
+import type { SchemaUIOptions } from '@fumadocs/api-docs/components/schema';
 
-export type Document = V3_1.Document;
-export type OperationObject = V3_1.OperationObject;
-export type ParameterObject = V3_1.ParameterObject;
-export type SecurityRequirementObject = V3_1.SecurityRequirementObject;
-export type SecuritySchemeObject = V3_1.SecuritySchemeObject;
-export type ReferenceObject = V3_1.ReferenceObject;
-export type PathItemObject = V3_1.PathItemObject;
-export type TagObject = V3_1.TagObject;
-export type ServerObject = NoReference<V3_1.ServerObject>;
-export type CallbackObject = NoReference<V3_1.CallbackObject>;
-
-export type MethodInformation = NoReference<OperationObject> & {
-  method: string;
+export type Document = OpenAPIV3_2.Document;
+export type OperationObject = OpenAPIV3_2.OperationObject & {
+  'x-codeSamples'?: InlineCodeUsageGenerator[];
+  'x-selectedCodeSample'?: string;
+  'x-exclusiveCodeSample'?: string;
 };
+export type ParameterObject = OpenAPIV3_2.ParameterObject;
+export type SecuritySchemeObject = OpenAPIV3_2.SecuritySchemeObject;
+export type ReferenceObject = OpenAPIV3_2.ReferenceObject;
+export type PathItemObject = OpenAPIV3_2.PathItemObject;
+export type TagObject = OpenAPIV3_2.TagObject;
+export type ServerObject = OpenAPIV3_2.ServerObject;
+export type CallbackObject = OpenAPIV3_2.CallbackObject;
+export type ServerVariableObject = OpenAPIV3.ServerVariableObject;
+export type ResponseObject = OpenAPIV3_2.ResponseObject;
+export type OAuth2SecurityScheme = OpenAPIV3_2.OAuth2SecurityScheme;
+export type HttpMethods = OpenAPIV3_2.HttpMethods;
+export type ExampleObject = OpenAPIV3_2.ExampleObject;
+export type MediaTypeObject = OpenAPIV3_2.MediaTypeObject;
+export type RequestBodyObject = OpenAPIV3_2.RequestBodyObject;
 
-type Awaitable<T> = T | Promise<T>;
+type RequireKeys<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
-/**
- * Dereferenced value and its original `$ref` value
- */
-export type DereferenceMap = Map<unknown, string>;
-
-export interface RenderContext {
-  /**
-   * The url of proxy to avoid CORS issues
-   */
-  proxyUrl?: string;
-
-  renderer: Renderer;
-
-  /**
-   * Disable API Playground
-   */
-  disablePlayground?: boolean;
-
-  baseUrl: string;
-  servers: ServerObject[];
-
-  slugger: Slugger;
-
+export interface RenderContext
+  extends
+    Pick<OpenAPIOptions, 'proxyUrl'>,
+    Omit<
+      RequireKeys<
+        CreateOpenAPIPageOptions,
+        'generateTypeScriptDefinitions' | 'mediaAdapters' | 'codeUsages' | 'shikiOptions' | 'shiki'
+      >,
+      'schemaUI'
+    > {
   /**
    * dereferenced schema
    */
-  schema: ProcessedDocument;
-
-  /**
-   * Generate TypeScript definitions from response schema.
-   *
-   * Pass `false` to disable it.
-   *
-   * @param method - the operation object
-   * @param statusCode - status code
-   */
-  generateTypeScriptSchema?:
-    | ((
-        method: NoReference<MethodInformation>,
-        statusCode: string,
-      ) => Awaitable<string>)
-    | false;
-
-  /**
-   * Generate code samples for endpoint.
-   */
-  generateCodeSamples?: (method: MethodInformation) => Awaitable<CodeSample[]>;
-
-  shikiOptions?: Omit<CodeToHastOptionsCommon, 'lang'> &
-    CodeOptionsThemes<BuiltinTheme>;
-
-  /**
-   * Show full response schema instead of only example response & Typescript definitions
-   *
-   * @default true
-   */
-  showResponseSchema?: boolean;
-
-  mediaAdapters: Record<string, MediaAdapter | true>;
+  schema: DereferencedDocument;
+  _default_processMarkdown: (md: string) => ReactNode;
+  SchemaUI: FC<Omit<SchemaUIOptions, 'renderMarkdown' | 'renderCodeblock'>>;
 }
+
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type Awaitable<T> = T | Promise<T>;

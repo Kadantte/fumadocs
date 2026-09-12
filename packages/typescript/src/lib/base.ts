@@ -1,23 +1,35 @@
 import {
-  type ExportedDeclarations,
-  Project,
+  type Checker,
+  isObjectType,
+  NodeBuilderFlags,
+  ObjectFlags,
+  type Project as TsProject,
   type Symbol as TsSymbol,
-  ts,
+  SymbolFlags,
   type Type,
-} from 'ts-morph';
-import { createProject, type TypescriptConfig } from '@/create-project';
-import fs from 'node:fs';
+} from 'typescript/unstable/sync';
+import type { Node } from 'typescript/unstable/ast';
+import fs from 'node:fs/promises';
 import {
   type BaseTypeTableProps,
   type GenerateTypeTableOptions,
   getTypeTableOutput,
 } from '@/lib/type-table';
-import { createCache } from '@/lib/cache';
 import path from 'node:path';
+import { generateHash, type Cache } from '@/cache';
+import { version as packageVersion } from '../../package.json';
+import { getSimpleForm, type TypeSimplifierOptions } from '@/lib/get-simple-form';
+import { createProject, type Project, type TypescriptConfig } from '@/lib/project';
+
+export { createProject, type Project, type TypescriptConfig };
 
 export interface GeneratedDoc {
+  /**
+   * unique ID generated from file name & export declaration.
+   */
+  id: string;
   name: string;
-  description: string;
+  description?: string;
   entries: DocEntry[];
 }
 
@@ -25,16 +37,27 @@ export interface DocEntry {
   name: string;
   description: string;
   type: string;
-  tags: Record<string, string>;
+  typeHref?: string;
+  simplifiedType: string;
+
+  tags: RawTag[];
   required: boolean;
   deprecated: boolean;
 }
 
-interface EntryContext {
-  program: Project;
-  transform?: Transformer;
+export interface RawTag {
+  name: string;
+  text: string;
+}
+
+interface EntryContext extends GenerateOptions {
+  /**
+   * The TypeScript project (from `typescript/unstable/sync`) containing the declaration.
+   */
+  program: TsProject;
+  checker: Checker;
   type: Type;
-  declaration: ExportedDeclarations;
+  declaration: Node;
 }
 
 type Transformer = (
@@ -56,6 +79,8 @@ export interface GenerateOptions {
    * Modify output property entry
    */
   transform?: Transformer;
+
+  typeSimplifier?: TypeSimplifierOptions;
 }
 
 export type Generator = ReturnType<typeof createGenerator>;
@@ -64,182 +89,184 @@ export interface GeneratorOptions extends TypescriptConfig {
   /**
    * cache results, note that some options are not marked as dependency.
    *
-   * @defaultValue fs
+   * @defaultValue false
    */
-  cache?: 'fs' | false;
+  cache?: Cache | false;
 
   project?: Project;
 }
 
-export function createGenerator(config?: GeneratorOptions | Project) {
-  const options =
-    config instanceof Project
-      ? {
-          project: config,
-        }
-      : config;
-  const cacheType = options?.cache ?? 'fs';
-  const cache = cacheType === 'fs' ? createCache() : null;
-  let instance: Project | undefined;
+export function createGenerator(options: GeneratorOptions = {}) {
+  const cache = options?.cache ? options.cache : null;
+  let instance: Project | Promise<Project> | undefined = options?.project;
 
   function getProject() {
-    instance ??= options?.project ?? createProject(options);
-    return instance;
+    if (instance) return instance;
+    return (instance = createProject(options));
   }
 
   return {
-    generateDocumentation(
+    async generateDocumentation(
       file: {
         path: string;
         content?: string;
       },
       name: string | undefined,
-      options?: GenerateOptions,
+      options: GenerateOptions = {},
     ) {
-      const content =
-        file.content ?? fs.readFileSync(path.resolve(file.path)).toString();
-      const cacheKey = `${file.path}:${name}:${content}`;
+      const fullPath = path.resolve(file.path);
+      const content = file.content ?? (await fs.readFile(fullPath, 'utf-8'));
+      let cacheKey: string | undefined;
       if (cache) {
-        const cached = cache.read(cacheKey) as GeneratedDoc[] | undefined;
+        cacheKey = generateHash(`${file.path}:${name}:${content}:${packageVersion}`);
+        const cached = (await cache.read(cacheKey)) as GeneratedDoc[] | undefined;
         if (cached) return cached;
       }
-      const sourceFile = getProject().createSourceFile(file.path, content, {
-        overwrite: true,
-      });
+
+      const project = await getProject();
+      const loaded = project.getSourceFile(fullPath, file.content);
+      if (!loaded) throw new Error(`failed to load ${fullPath} into TypeScript project.`);
+
+      const { project: tsProject, sourceFile } = loaded;
+      const { checker } = tsProject;
       const out: GeneratedDoc[] = [];
+      const moduleSymbol = name ? checker.getSymbolAtLocation(sourceFile) : undefined;
 
-      for (const [k, d] of sourceFile.getExportedDeclarations()) {
-        if (name && name !== k) continue;
+      if (moduleSymbol && name) {
+        for (const exported of checker.getExportsOfModule(moduleSymbol)) {
+          if (exported.name !== name) continue;
 
-        if (d.length > 1)
-          console.warn(
-            `export ${k} should not have more than one type declaration.`,
+          const symbol =
+            (exported.flags & SymbolFlags.Alias) !== 0
+              ? checker.getAliasedSymbol(exported)
+              : exported;
+          if (symbol.declarations.length === 0) continue;
+          if (symbol.declarations.length > 1)
+            console.warn(`export ${name} should not have more than one type declaration.`);
+
+          const declaration = symbol.declarations[0].resolve(tsProject);
+          if (!declaration) continue;
+          const type = checker.getTypeAtLocation(declaration);
+          if (!type) continue;
+
+          const entryContext: EntryContext = {
+            ...options,
+            program: tsProject,
+            checker,
+            type,
+            declaration,
+          };
+          out.push(
+            generate(encodeURI(`${path.basename(file.path)}-${name}`), name, symbol, entryContext),
           );
-
-        out.push(generate(getProject(), k, d[0], options));
+        }
       }
 
-      cache?.write(cacheKey, out);
+      if (cache && cacheKey) {
+        await cache.write(cacheKey, out);
+      }
       return out;
     },
-    generateTypeTable(
-      props: BaseTypeTableProps,
-      options?: GenerateTypeTableOptions,
-    ) {
+    generateTypeTable(props: BaseTypeTableProps, options?: GenerateTypeTableOptions) {
       return getTypeTableOutput(this, props, options);
     },
   };
 }
 
-/**
- * Generate documentation for properties in an exported type/interface
- *
- * @deprecated use `createGenerator` instead
- */
-export function generateDocumentation(
-  file: string,
-  name: string | undefined,
-  content: string,
-  options: GenerateOptions & {
-    /**
-     * Typescript configurations
-     */
-    config?: TypescriptConfig;
-    project?: Project;
-  } = {},
-): GeneratedDoc[] {
-  const gen = createGenerator(options.project ?? options.config);
-
-  return gen.generateDocumentation({ path: file, content }, name, options);
-}
-
 function generate(
-  program: Project,
+  id: string,
   name: string,
-  declaration: ExportedDeclarations,
-  { allowInternal = false, transform }: GenerateOptions = {},
+  symbol: TsSymbol,
+  entryContext: EntryContext,
 ): GeneratedDoc {
-  const entryContext: EntryContext = {
-    transform,
-    program,
-    type: declaration.getType(),
-    declaration,
-  };
-
-  const comment = declaration
-    .getSymbol()
-    ?.compilerSymbol.getDocumentationComment(
-      program.getTypeChecker().compilerObject,
-    );
+  const { checker, type } = entryContext;
+  const entries: DocEntry[] = [];
+  for (const prop of checker.getPropertiesOfType(type)) {
+    const out = getDocEntry(prop, entryContext);
+    if (out) entries.push(out);
+  }
 
   return {
+    id,
     name,
-    description: comment ? ts.displayPartsToString(comment) : '',
-    entries: declaration
-      .getType()
-      .getProperties()
-      .map((prop) => getDocEntry(prop, entryContext))
-      .filter(
-        (entry) => entry && (allowInternal || !('internal' in entry.tags)),
-      ) as DocEntry[],
+    description: checker.getDocumentationCommentOfSymbol(symbol),
+    entries,
   };
 }
 
-function getDocEntry(
-  prop: TsSymbol,
-  context: EntryContext,
-): DocEntry | undefined {
-  const { transform, program } = context;
+function isClassType(type: Type): boolean {
+  return isObjectType(type) && (type.objectFlags & ObjectFlags.Class) !== 0;
+}
 
-  if (context.type.isClass() && prop.getName().startsWith('#')) {
+/**
+ * Private class members (`#name`) are exposed with their escaped name (`__#1@#name`) by TypeScript.
+ */
+function isPrivateIdentifierName(name: string): boolean {
+  return name.startsWith('#') || name.startsWith('__#');
+}
+
+function getDocEntry(prop: TsSymbol, context: EntryContext): DocEntry | undefined {
+  const { transform, allowInternal = false, checker, declaration } = context;
+  if (isClassType(context.type) && isPrivateIdentifierName(prop.name)) {
     return;
   }
 
-  const subType = program
-    .getTypeChecker()
-    .getTypeOfSymbolAtLocation(prop, context.declaration);
-  const tags = Object.fromEntries(
-    prop
-      .getJsDocTags()
-      .map((tag) => [tag.getName(), ts.displayPartsToString(tag.getText())]),
-  );
+  const subType = checker.getTypeOfSymbolAtLocation(prop, declaration);
+  const isOptional = (prop.flags & SymbolFlags.Optional) !== 0;
+  const tags: RawTag[] = [];
 
-  let typeName = subType.getText(
-    undefined,
-    ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope,
-  );
+  for (const tag of checker.getJsDocTagsOfSymbol(prop)) {
+    if (!allowInternal && tag.name === 'internal') return;
 
-  if (
-    subType.getAliasSymbol() &&
-    subType.getAliasTypeArguments().length === 0
-  ) {
-    typeName = subType.getAliasSymbol()?.getEscapedName() ?? typeName;
-  }
-
-  if (prop.isOptional() && typeName.endsWith('| undefined')) {
-    typeName = typeName
-      .slice(0, typeName.length - '| undefined'.length)
-      .trimEnd();
-  }
-
-  if ('remarks' in tags) {
-    typeName = /^`(?<name>.+)`/.exec(tags.remarks)?.[1] ?? typeName;
+    tags.push({
+      name: tag.name,
+      text: tag.text ?? '',
+    });
   }
 
   const entry: DocEntry = {
-    name: prop.getName(),
-    description: ts.displayPartsToString(
-      prop.compilerSymbol.getDocumentationComment(
-        program.getTypeChecker().compilerObject,
-      ),
-    ),
+    name: prop.name,
+    description: checker.getDocumentationCommentOfSymbol(prop),
     tags,
-    type: typeName,
-    required: !prop.isOptional(),
-    deprecated: prop
-      .getJsDocTags()
-      .some((tag) => tag.getName() === 'deprecated'),
+    type: checker.typeToString(
+      subType,
+      declaration,
+      NodeBuilderFlags.UseAliasDefinedOutsideCurrentScope | NodeBuilderFlags.NoTruncation,
+    ),
+    simplifiedType: getSimpleForm(subType, checker, declaration, {
+      ...context.typeSimplifier,
+      noUndefined: isOptional,
+    }),
+    required: !isOptional,
+    deprecated: false,
   };
+
+  for (const tag of tags) {
+    switch (tag.name) {
+      case 'fumadocsType': {
+        // replace full type with @fumadocsType
+        const match = /`(?<name>.+)`$/.exec(tag.text)?.[1];
+        if (match) entry.type = match;
+        break;
+      }
+      case 'remarks': {
+        // replace simplified type with @remarks
+        const match = /^`(?<name>.+)`/.exec(tag.text)?.[1];
+        if (match) entry.simplifiedType = match;
+        break;
+      }
+      case 'fumadocsHref': {
+        // add anchor to output property type
+        const content = tag.text.trim();
+        if (content.length > 0) entry.typeHref = content;
+        break;
+      }
+      case 'deprecated': {
+        entry.deprecated = true;
+        break;
+      }
+    }
+  }
 
   transform?.call(context, entry, subType, prop);
 

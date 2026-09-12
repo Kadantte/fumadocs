@@ -3,14 +3,12 @@ import { type CompileOptions, createProcessor } from '@mdx-js/mdx';
 import type { MDXComponents } from 'mdx/types';
 import { parseFrontmatter, pluginOption, type ResolvePlugins } from './utils';
 import type { Compatible, VFile } from 'vfile';
-import type { TableOfContents } from 'fumadocs-core/server';
+import type { TOCItemType } from 'fumadocs-core/toc';
 import { executeMdx, type MdxContent } from '@/render';
 import { pathToFileURL } from 'node:url';
 
-export type MDXOptions = Omit<
-  CompileOptions,
-  'remarkPlugins' | 'rehypePlugins'
-> & {
+export type FumadocsPresetOptions = Omit<CompileOptions, 'remarkPlugins' | 'rehypePlugins'> & {
+  preset?: 'fumadocs';
   remarkPlugins?: ResolvePlugins;
   rehypePlugins?: ResolvePlugins;
 
@@ -18,6 +16,7 @@ export type MDXOptions = Omit<
   rehypeCodeOptions?: Plugins.RehypeCodeOptions | false;
   rehypeTocOptions?: Plugins.RehypeTocOptions | false;
   remarkCodeTabOptions?: Plugins.RemarkCodeTabOptions | false;
+  remarkNpmOptions?: Plugins.RemarkNpmOptions | false;
 
   /**
    * The directory to find image sizes
@@ -30,6 +29,8 @@ export type MDXOptions = Omit<
   remarkImageOptions?: Plugins.RemarkImageOptions | false;
 };
 
+export type CompilerOptions = (CompileOptions & { preset: 'minimal' }) | FumadocsPresetOptions;
+
 export interface CompileMDXOptions {
   source: string;
   /**
@@ -37,7 +38,6 @@ export interface CompileMDXOptions {
    */
   filePath?: string;
 
-  mdxOptions?: MDXOptions;
   components?: MDXComponents;
   scope?: Record<string, unknown>;
 
@@ -50,14 +50,14 @@ export interface CompileMDXOptions {
 export interface CompileMDXResult<TFrontmatter = Record<string, unknown>> {
   body: MdxContent;
   frontmatter: TFrontmatter;
-  toc: TableOfContents;
+  toc: TOCItemType[];
   vfile: VFile;
 
   compiled: string;
   exports: Record<string, unknown> | null;
 }
 
-export function createCompiler(mdxOptions?: MDXOptions) {
+export function createCompiler(mdxOptions?: CompilerOptions) {
   let instance: ReturnType<typeof createProcessor> | undefined;
 
   function getProcessor() {
@@ -67,23 +67,17 @@ export function createCompiler(mdxOptions?: MDXOptions) {
     if (!format || format === 'detect') format = 'mdx';
 
     return (instance = createProcessor({
-      ...getCompileOptions(mdxOptions),
+      ...(mdxOptions?.preset === 'minimal' ? mdxOptions : getCompileOptions(mdxOptions)),
       format,
     }));
   }
 
   return {
-    async render(
-      compiled: string,
-      scope?: Record<string, unknown>,
-      filePath?: string,
-    ) {
+    async render(compiled: string, scope?: Record<string, unknown>, filePath?: string) {
       return executeMdx(compiled, {
         scope,
         baseUrl: filePath ? pathToFileURL(filePath) : undefined,
-        jsxRuntime: mdxOptions?.development
-          ? await import('react/jsx-dev-runtime')
-          : undefined,
+        jsxRuntime: mdxOptions?.development ? await import('react/jsx-dev-runtime') : undefined,
       });
     },
     /**
@@ -93,7 +87,7 @@ export function createCompiler(mdxOptions?: MDXOptions) {
       return getProcessor().process(from);
     },
     async compile<Frontmatter extends object = Record<string, unknown>>(
-      options: Omit<CompileMDXOptions, 'mdxOptions'>,
+      options: CompileMDXOptions,
     ): Promise<CompileMDXResult<Frontmatter>> {
       const { scope = {}, skipRender } = options;
       const { frontmatter, content } = parseFrontmatter(options.source);
@@ -101,58 +95,62 @@ export function createCompiler(mdxOptions?: MDXOptions) {
       const file = await this.compileFile({
         value: content,
         path: options.filePath,
+        data: {
+          frontmatter,
+        },
       });
       const compiled = String(file);
-      const exports = !skipRender
-        ? await this.render(compiled, scope, options.filePath)
-        : null;
+      const exports = !skipRender ? await this.render(compiled, scope, options.filePath) : null;
 
       return {
         vfile: file,
         compiled,
         frontmatter: frontmatter as Frontmatter,
         async body(props) {
-          if (!exports)
-            throw new Error(
-              'Body cannot be rendered when `skipRender` is set to true',
-            );
+          if (!exports) throw new Error('Body cannot be rendered when `skipRender` is set to true');
 
           return exports.default({
             components: { ...options.components, ...props.components },
           });
         },
-        toc: exports?.toc ?? (file.data.toc as TableOfContents),
+        toc: exports?.toc ?? file.data.toc!,
         exports,
       };
     },
   };
 }
 
-export async function compileMDX<
-  Frontmatter extends object = Record<string, unknown>,
->(options: CompileMDXOptions): Promise<CompileMDXResult<Frontmatter>> {
+/**
+ * @deprecated Use `createCompiler()` API instead, this function will always create a new compiler instance.
+ */
+export async function compileMDX<Frontmatter extends object = Record<string, unknown>>(
+  options: CompileMDXOptions & {
+    mdxOptions?: CompilerOptions;
+  },
+): Promise<CompileMDXResult<Frontmatter>> {
   const compiler = createCompiler(options.mdxOptions);
 
   return compiler.compile(options);
 }
 
 function getCompileOptions({
+  preset: _,
   rehypeCodeOptions,
   remarkImageOptions,
   rehypeTocOptions,
   remarkHeadingOptions,
   remarkCodeTabOptions,
+  remarkNpmOptions,
   imageDir = './public',
   ...options
-}: MDXOptions = {}): CompileOptions {
-  function getPlugin<K extends keyof typeof Plugins>(
-    name: K,
-  ): (typeof Plugins)[K] | null {
+}: FumadocsPresetOptions = {}): CompileOptions {
+  function getPlugin<K extends keyof typeof Plugins>(name: K): (typeof Plugins)[K] | null {
     return name in Plugins ? Plugins[name] : null;
   }
   const remarkGfm = getPlugin('remarkGfm');
   const remarkHeading = getPlugin('remarkHeading');
   const remarkCodeTab = getPlugin('remarkCodeTab');
+  const remarkNpm = getPlugin('remarkNpm');
   const remarkImage = getPlugin('remarkImage');
   const rehypeCode = getPlugin('rehypeCode');
   const rehypeToc = getPlugin('rehypeToc');
@@ -179,21 +177,21 @@ function getCompileOptions({
         remarkCodeTab && remarkCodeTabOptions !== false
           ? [remarkCodeTab, remarkCodeTabOptions]
           : null,
+        remarkNpm && remarkNpmOptions !== false ? [remarkNpm, remarkNpmOptions] : null,
         ...v,
       ],
       options.remarkPlugins,
     ),
     rehypePlugins: pluginOption(
       (v) => [
-        rehypeCode && rehypeCodeOptions !== false
-          ? [rehypeCode, rehypeCodeOptions]
-          : null,
-        rehypeToc && rehypeTocOptions !== false
-          ? [rehypeToc, rehypeTocOptions]
-          : null,
+        rehypeCode && rehypeCodeOptions !== false ? [rehypeCode, rehypeCodeOptions] : null,
+        rehypeToc && rehypeTocOptions !== false ? [rehypeToc, rehypeTocOptions] : null,
         ...v,
       ],
       options.rehypePlugins,
     ),
   };
 }
+
+// backward compatible
+export type { CompilerOptions as MDXOptions };

@@ -1,4 +1,130 @@
+## @fumadocs/mdx-remote@1.5.1
+
+### Migrate from `js-yaml` to `yaml`
+
+## @fumadocs/mdx-remote@1.5.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
 # @fumadocs/mdx-remote
+
+## 1.4.10
+
+### Patch Changes
+
+- 3e85c69: reduce deps
+- Updated dependencies [79d3209]
+  - fumadocs-core@16.8.5
+
+## 1.4.9
+
+### Patch Changes
+
+- a744f9f: Support frontmatter parsing at core-level
+
+## 1.4.8
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - fumadocs-core@16.7.14
+
+## 1.4.7
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - fumadocs-core@16.7.13
+
+## 1.4.6
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - fumadocs-core@16.6.8
+
+## 1.4.5
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-core@16.5.2
+
+## 1.4.4
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+
+## 1.4.3
+
+### Patch Changes
+
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [230c6bf]
+- Updated dependencies [851897c]
+- Updated dependencies [4049ccc]
+- Updated dependencies [429c41a]
+- Updated dependencies [5210f18]
+- Updated dependencies [cbc93e9]
+- Updated dependencies [42f09c3]
+- Updated dependencies [55afd8a]
+  - fumadocs-core@16.0.0
+
+## 1.4.2
+
+### Patch Changes
+
+- b867d07: Support customize scope variables
+
+## 1.4.1
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+  - fumadocs-core@15.8.3
+
+## 1.4.0
+
+### Minor Changes
+
+- f8a58c6: Support `preset: minimal` to disable Fumadocs specific defaults
+
+### Patch Changes
+
+- Updated dependencies [658fa96]
+  - fumadocs-core@15.6.5
+
+## 1.3.4
+
+### Patch Changes
+
+- d0f8a15: Enable `remarkNpm` by default, replace `remarkInstall` with it.
+- Updated dependencies [d0f8a15]
+- Updated dependencies [84918b8]
+- Updated dependencies [f8d1709]
+  - fumadocs-core@15.6.0
+
+## 1.3.3
+
+### Patch Changes
+
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
+- Updated dependencies [7a45921]
+- Updated dependencies [1b7bc4b]
+  - fumadocs-core@15.5.2
 
 ## 1.3.2
 

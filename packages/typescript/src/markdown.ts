@@ -1,36 +1,58 @@
-import type { Nodes } from 'hast';
+import type { ElementContent, Nodes } from 'hast';
 import { remark } from 'remark';
-import {
-  rehypeCode,
-  type RehypeCodeOptions,
-  remarkGfm,
-} from 'fumadocs-core/mdx-plugins';
+import { remarkGfm } from 'fumadocs-core/mdx-plugins/remark-gfm';
+import { rehypeCode } from 'fumadocs-core/mdx-plugins/rehype-code';
 import remarkRehype from 'remark-rehype';
+import { highlightHast } from 'fumadocs-core/highlight';
+import type { CodeToHastOptionsCommon, CodeOptionsThemes, BundledTheme } from 'shiki';
 
-const processor = remark()
-  .use(remarkGfm)
-  .use(remarkRehype)
-  .use(rehypeCode, {
-    lazy: true,
+export interface MarkdownRenderer {
+  renderTypeToHast: (type: string) => Nodes | Promise<Nodes>;
+  renderMarkdownToHast: (md: string) => Nodes | Promise<Nodes>;
+}
 
-    themes: {
-      light: 'github-light',
-      dark: 'github-dark',
+export type ShikiOptions = Omit<CodeToHastOptionsCommon, 'lang'> & CodeOptionsThemes<BundledTheme>;
+
+export function markdownRenderer(options?: ShikiOptions): MarkdownRenderer {
+  const processor = remark()
+    .use(remarkGfm)
+    .use(remarkRehype)
+    .use(rehypeCode, {
+      langs: ['ts', 'tsx'],
+      // disable default transformers & meta parser
+      transformers: [],
+      parseMetaString: undefined,
+      ...options,
+    });
+  return {
+    async renderTypeToHast(type) {
+      const nodes = await highlightHast(type, {
+        lang: 'ts',
+        structure: 'inline',
+        defaultColor: false,
+        ...options,
+      });
+
+      return {
+        type: 'element',
+        tagName: 'span',
+        properties: {
+          class: 'shiki',
+        },
+        children: [
+          {
+            type: 'element',
+            tagName: 'code',
+            properties: {},
+            children: nodes.children as ElementContent[],
+          },
+        ],
+      };
     },
-  } satisfies RehypeCodeOptions)
-  // @ts-expect-error -- safe
-  .use(() => {
-    return (tree, file: { data: Record<string, unknown> }) => {
-      file.data.tree = tree;
+    renderMarkdownToHast(md) {
+      md = md.replace(/{@link (?<link>[^}]*)}/g, '$1'); // replace jsdoc links
 
-      return '';
-    };
-  });
-
-export async function renderMarkdownToHast(md: string): Promise<Nodes> {
-  md = md.replace(/{@link (?<link>[^}]*)}/g, '$1'); // replace jsdoc links
-
-  const out = await processor.process(md);
-
-  return out.data.tree as Nodes;
+      return processor.run(processor.parse(md));
+    },
+  };
 }

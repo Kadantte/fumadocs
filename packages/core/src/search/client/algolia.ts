@@ -1,6 +1,7 @@
-import type { SortedResult } from '@/server/types';
 import type { BaseIndex } from '@/search/algolia';
 import type { Hit, LiteClient, SearchResponse } from 'algoliasearch/lite';
+import { createContentHighlighter, type SortedResult } from '@/search';
+import type { SearchClient } from '../client';
 
 export interface AlgoliaOptions {
   indexName: string;
@@ -22,7 +23,7 @@ export interface AlgoliaOptions {
   }>;
 }
 
-export function groupResults(hits: Hit<BaseIndex>[]): SortedResult[] {
+function groupResults(hits: Hit<BaseIndex>[]): SortedResult[] {
   const grouped: SortedResult[] = [];
   const scannedUrls = new Set<string>();
 
@@ -33,6 +34,7 @@ export function groupResults(hits: Hit<BaseIndex>[]): SortedResult[] {
       grouped.push({
         id: hit.url,
         type: 'page',
+        breadcrumbs: hit.breadcrumbs,
         url: hit.url,
         content: hit.title,
       });
@@ -49,30 +51,32 @@ export function groupResults(hits: Hit<BaseIndex>[]): SortedResult[] {
   return grouped;
 }
 
-export async function searchDocs(
-  query: string,
-  { indexName, onSearch, client, locale, tag }: AlgoliaOptions,
-): Promise<SortedResult[]> {
-  if (query.length > 0) {
-    const result = onSearch
-      ? await onSearch(query, tag, locale)
-      : await client.searchForHits<BaseIndex>({
-          requests: [
-            {
-              type: 'default',
-              indexName,
-              query,
-              distinct: 5,
-              hitsPerPage: 10,
-              filters: tag ? `tag:${tag}` : undefined,
-            },
-          ],
-        });
+export function algoliaClient(options: AlgoliaOptions): SearchClient {
+  const { indexName, onSearch, client, locale, tag } = options;
+  return {
+    deps: [indexName, client, locale, tag],
+    async search(query) {
+      if (query.trim().length === 0) return [];
 
-    return groupResults(result.results[0].hits).filter(
-      (hit) => hit.type === 'page',
-    );
-  }
+      const result = onSearch
+        ? await onSearch(query, tag, locale)
+        : await client.searchForHits<BaseIndex>({
+            requests: [
+              {
+                type: 'default',
+                indexName,
+                query,
+                distinct: 5,
+                hitsPerPage: 10,
+                filters: tag ? `tag:${tag}` : undefined,
+              },
+            ],
+          });
 
-  return [];
+      const highlighter = createContentHighlighter(query);
+      const results = groupResults(result.results[0].hits);
+      for (const item of results) item.content = highlighter.highlightMarkdown(item.content);
+      return results;
+    },
+  };
 }

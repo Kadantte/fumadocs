@@ -1,4 +1,4 @@
-import type { TableOfContents } from 'fumadocs-core/server';
+import type { TOCItemType } from 'fumadocs-core/toc';
 import type { MdxContent } from '@/render';
 
 export * from './compile';
@@ -7,11 +7,7 @@ export { parseFrontmatter } from './utils';
 /**
  * @deprecated Use `compiler.render` instead
  */
-export async function executeMdx(
-  compiled: string,
-  scope: object,
-  baseUrl?: string | URL,
-) {
+export async function executeMdx(compiled: string, scope: object, baseUrl?: string | URL) {
   let jsxRuntime;
 
   if (process.env.NODE_ENV === 'production') {
@@ -35,6 +31,6 @@ export async function executeMdx(
 
   return (await hydrateFn.apply(hydrateFn, values)) as {
     default: MdxContent;
-    toc?: TableOfContents;
+    toc?: TOCItemType[];
   };
 }

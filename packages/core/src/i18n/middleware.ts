@@ -1,108 +1,108 @@
 import { match as matchLocale } from '@formatjs/intl-localematcher';
-import Negotiator from 'negotiator';
-import type { NextMiddleware } from 'next/dist/server/web/types';
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextProxy, NextResponse } from 'next/server';
 import type { I18nConfig } from '@/i18n';
+import { negotiateLanguages } from '@/utils/accept-language';
+import type { NextURL } from 'next/dist/server/web/next-url';
 
 interface MiddlewareOptions extends I18nConfig {
   /**
-   * A function that adds the locale prefix to path name
+   * Either:
+   * - A formatter object
+   * - A function that adds the locale prefix to pathname
    */
-  format?: (locale: string, path: string) => string;
+  format?: URLFormatter | ((locale: string, pathname: string) => string);
+
+  /**
+   * the cookie to store locale code when `hideLocale` is set to `always`.
+   */
+  cookieName?: string;
 }
 
-const COOKIE = 'FD_LOCALE';
+export interface URLFormatter {
+  /**
+   * get locale code from request URL
+   */
+  get: (url: NextURL) => string | undefined;
 
-function getLocale(
-  request: NextRequest,
-  locales: string[],
-  defaultLanguage: string,
-): string {
-  // Negotiator expects plain object so we need to transform headers
-  const negotiatorHeaders: Record<string, string> = {};
-  request.headers.forEach((value, key) => {
-    negotiatorHeaders[key] = value;
-  });
+  /**
+   * add locale code to request URL (which is missing the locale).
+   */
+  add: (url: NextURL, locale: string) => URL;
 
-  // Use negotiator and intl-localematcher to get best locale
-  const languages = new Negotiator({ headers: negotiatorHeaders }).languages(
-    locales,
-  );
-
-  return matchLocale(languages, locales, defaultLanguage);
+  /**
+   * remove locale code from request URL
+   */
+  remove: (url: NextURL) => URL;
 }
 
-const defaultFormat: NonNullable<MiddlewareOptions['format']> = (
-  locale,
-  path,
-) => {
-  return `/${locale}/${path}`;
+export const DefaultFormatter: URLFormatter = {
+  get(url) {
+    const segs = url.pathname.split('/');
+    if (segs.length > 1 && segs[1]) return segs[1];
+  },
+  add(url, locale) {
+    const next = new URL(url);
+    next.pathname = `${url.basePath}/${locale}/${url.pathname}`.replaceAll(/\/+/g, '/');
+    return next;
+  },
+  remove(url) {
+    const next = new URL(url);
+    const pathname = url.pathname.split('/').slice(2).join('/');
+    next.pathname = `${url.basePath}/${pathname}`.replaceAll(/\/+/g, '/');
+    return next;
+  },
 };
 
 export function createI18nMiddleware({
   languages,
   defaultLanguage,
-  format = defaultFormat,
+  format = DefaultFormatter,
+  cookieName = 'FD_LOCALE',
   hideLocale = 'never',
-}: MiddlewareOptions): NextMiddleware {
-  function getUrl(
-    request: NextRequest,
-    pathname: string,
-    locale?: string,
-  ): URL {
-    if (!locale) {
-      return new URL(
-        pathname.startsWith('/') ? pathname : `/${pathname}`,
-        request.url,
-      );
-    }
-
-    return new URL(
-      format(locale, pathname.startsWith('/') ? pathname.slice(1) : pathname),
-      request.url,
-    );
+}: MiddlewareOptions): NextProxy {
+  let formatter: URLFormatter;
+  if (typeof format === 'function') {
+    formatter = {
+      ...DefaultFormatter,
+      add(url, locale) {
+        const next = new URL(url);
+        next.pathname = format(locale, url.pathname);
+        return next;
+      },
+    };
+  } else {
+    formatter = format;
   }
 
   return (request) => {
-    const inputPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-
-    const pathLocale = languages.find(
-      (locale) =>
-        inputPath.startsWith(`/${locale}/`) || inputPath === `/${locale}`,
-    );
+    const url = request.nextUrl;
+    let pathLocale = formatter.get(url);
+    if (pathLocale && !languages.includes(pathLocale)) pathLocale = undefined;
 
     if (!pathLocale) {
       if (hideLocale === 'default-locale') {
-        return NextResponse.rewrite(
-          getUrl(request, inputPath, defaultLanguage),
-        );
+        return NextResponse.rewrite(formatter.add(url, defaultLanguage));
       }
 
-      const preferred = getLocale(request, languages, defaultLanguage);
-
+      const finalLanguages = negotiateLanguages(request.headers.get('accept-language'), languages);
+      const preferred = matchLocale(finalLanguages, languages, defaultLanguage);
       if (hideLocale === 'always') {
-        const locale = request.cookies.get(COOKIE)?.value ?? preferred;
+        const locale = request.cookies.get(cookieName)?.value ?? preferred;
 
-        return NextResponse.rewrite(getUrl(request, inputPath, locale));
+        return NextResponse.rewrite(formatter.add(url, locale));
       }
 
-      return NextResponse.redirect(getUrl(request, inputPath, preferred));
+      return NextResponse.redirect(formatter.add(url, preferred));
     }
 
-    if (hideLocale === 'always') {
-      const path = inputPath.slice(`/${pathLocale}`.length);
-
-      const res = NextResponse.redirect(getUrl(request, path));
-      res.cookies.set(COOKIE, pathLocale);
+    // Remove explicit locale
+    if (
+      hideLocale === 'always' ||
+      (hideLocale === 'default-locale' && pathLocale === defaultLanguage)
+    ) {
+      const res = NextResponse.redirect(formatter.remove(url));
+      res.cookies.set(cookieName, pathLocale);
       return res;
-    }
-
-    // Remove explicit default locale
-    // (Only possible for default locale)
-    if (hideLocale === 'default-locale' && pathLocale === defaultLanguage) {
-      return NextResponse.redirect(
-        getUrl(request, inputPath.slice(`/${pathLocale}`.length)),
-      );
     }
 
     return NextResponse.next();

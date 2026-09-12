@@ -1,117 +1,141 @@
-import { getPathnameFromInput } from '@/utils/get-pathname-from-input';
-import type { RequestData } from '@/requests/_shared';
-import type { MediaAdapter } from '@/media/adapter';
+import type { RequestData } from '@/requests/types';
+import type { MediaAdapter } from '@/requests/media/adapter';
+import { resolveMediaAdapter } from '@/requests/media/resolve-adapter';
+import type { Awaitable } from '@/types';
 
-export interface FetchOptions extends RequestData {
-  proxyUrl?: string;
+export type FetchResult = FetchResponseResult | FetchErrorResult;
+
+export interface FetchErrorResult {
+  type: 'client_error';
+  url: string;
+  message: string;
 }
 
-export interface FetchResult {
+export interface FetchResponseResult {
+  type: 'response';
+  url: string;
   status: number;
-  type: 'json' | 'html' | 'text';
-  data: unknown;
+  headers: Headers;
+  body: ArrayBuffer;
 }
 
 export interface Fetcher {
-  fetch: (route: string, options: FetchOptions) => Promise<FetchResult>;
+  /**
+   * This method will not apply the path & search parameters from `options` to given `url`.
+   *
+   * @param url - The full URL of request.
+   */
+  fetch: (url: string, data: RequestData) => Promise<FetchResult>;
+}
+
+export interface BrowserFetcherOptions {
+  /**
+   * Request timeout in seconds (default: 10s)
+   */
+  requestTimeout?: number | false;
+
+  proxyUrl?: string;
+  /**
+   * Forward cookies via search parameters when API proxy is configured.
+   *
+   * @default true
+   */
+  proxyForwardCookie?: boolean;
+
+  /**
+   * transform the request options before sending.
+   */
+  onRequestInit?: (requestInit: RequestInit) => Awaitable<RequestInit>;
 }
 
 export function createBrowserFetcher(
   adapters: Record<string, MediaAdapter>,
+  {
+    proxyUrl,
+    proxyForwardCookie = true,
+    requestTimeout = 10,
+    onRequestInit,
+  }: BrowserFetcherOptions = {},
 ): Fetcher {
   return {
-    async fetch(route, options) {
-      const headers = new Headers();
-      if (options.bodyMediaType)
-        headers.append('Content-Type', options.bodyMediaType);
+    async fetch(url, data) {
+      let requestUrl = new URL(url, document.baseURI);
+      let requestInit: RequestInit = {
+        method: data.method,
+        cache: 'no-cache',
+        signal:
+          typeof requestTimeout === 'number'
+            ? AbortSignal.timeout(requestTimeout * 1000)
+            : undefined,
+      };
 
-      for (const key in options.header) {
-        const paramValue = options.header[key];
+      const headers = (requestInit.headers = new Headers());
 
-        if (paramValue.length > 0) headers.append(key, paramValue.toString());
+      for (const key in data.header) {
+        const param = data.header[key];
+        headers.append(key, param.value);
       }
-
-      const proxyUrl = options.proxyUrl
-        ? new URL(options.proxyUrl, window.location.origin)
-        : null;
-
-      let url = getPathnameFromInput(route, options.path, options.query);
 
       if (proxyUrl) {
-        proxyUrl.searchParams.append('url', url);
-        url = proxyUrl.toString();
+        requestUrl = new URL(proxyUrl, document.baseURI);
+        requestUrl.searchParams.append('url', url);
       }
 
-      let body: BodyInit | undefined = undefined;
-      if (options.bodyMediaType && options.body) {
-        const adapter = adapters[options.bodyMediaType];
+      if (data.bodyMediaType && data.body) {
+        const adapter = resolveMediaAdapter(data.bodyMediaType, adapters);
         if (!adapter)
           return {
-            status: 400,
-            type: 'text',
-            data: `[Fumadocs] No adapter for ${options.bodyMediaType}, you need to specify one from 'createOpenAPI()'.`,
+            type: 'client_error',
+            url,
+            message: `[Fumadocs] No adapter for ${data.bodyMediaType}, you need to specify one from 'createOpenAPI()'.`,
           };
 
-        body = await adapter.encode(options);
+        if (data.bodyMediaType !== 'multipart/form-data') {
+          headers.append('Content-Type', data.bodyMediaType);
+        }
+
+        requestInit.body = adapter.encode(data as { body: unknown });
       }
 
       // cookies
-      for (const key in options.cookie) {
-        const value = options.cookie[key];
-        if (!value) continue;
+      if (proxyUrl && proxyForwardCookie) {
+        const encoded = Object.entries(data.cookie)
+          .map(([k, v]) => `${k}=${encodeURIComponent(v.value)}`)
+          .join('; ');
+        requestUrl.searchParams.set('cookie', encoded);
+        requestInit.credentials = 'omit';
+      } else {
+        for (const key in data.cookie) {
+          const param = data.cookie[key];
+          const segs: string[] = [`${key}=${encodeURIComponent(param.value)}`];
 
-        const cookie = {
-          [key]: value,
-          domain:
-            proxyUrl && proxyUrl.origin !== window.location.origin
-              ? `domain=${proxyUrl.host}`
-              : undefined,
-          path: '/',
-          'max-age': 30,
-        };
+          if (proxyUrl && requestUrl.origin !== window.location.origin)
+            segs.push(`domain=${requestUrl.host}`);
+          segs.push('path=/', 'max-age=30');
 
-        let str = '';
-        for (const [key, value] of Object.entries(cookie)) {
-          if (value) {
-            if (str.length > 0) str += '; ';
-
-            str += `${key}=${value}`;
-          }
+          document.cookie = segs.join('; ');
         }
-
-        document.cookie = str;
       }
 
-      return fetch(url, {
-        method: options.method,
-        cache: 'no-cache',
-        headers,
-        body,
-        signal: AbortSignal.timeout(10 * 1000),
-      })
-        .then(async (res) => {
-          const contentType = res.headers.get('Content-Type') ?? '';
-          let type: FetchResult['type'];
-          let data: unknown;
+      if (onRequestInit) requestInit = await onRequestInit(requestInit);
 
-          if (contentType.startsWith('application/json')) {
-            type = 'json';
-            data = await res.json();
-          } else {
-            type = contentType.startsWith('text/html') ? 'html' : 'text';
-            data = await res.text();
-          }
-
-          return { status: res.status, type, data };
+      return fetch(requestUrl, requestInit)
+        .then(async (res): Promise<FetchResult> => {
+          return {
+            type: 'response',
+            url: res.url,
+            status: res.status,
+            headers: res.headers,
+            body: await res.arrayBuffer(),
+          };
         })
-        .catch((e) => {
-          const message =
-            e instanceof Error ? `[${e.name}] ${e.message}` : e.toString();
+        .catch((e): FetchResult => {
+          const message = e instanceof Error ? `[${e.name}] ${e.message}` : e.toString();
 
           return {
-            status: 400,
-            type: 'text',
-            data: `Client side error: ${message}`,
+            type: 'client_error',
+            url,
+            message: `Client side error: ${message}`,
           };
         });
     },

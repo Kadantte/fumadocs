@@ -1,3 +1,5 @@
+@source inline("prose prose-sm");
+
 /* ===== Basic ===== */
 @theme {
   --color-twoslash-error-foreground: #d45656;
@@ -14,13 +16,14 @@
   display: flex;
 }
 
-.twoslash-popup-container,
-.twoslash-completion-list {
+.twoslash-completion-list,
+.twoslash-popup-container {
   position: relative;
   user-select: none;
   display: flex;
   margin-top: 8px;
   width: 20rem;
+  margin-right: -20rem;
   flex-direction: column;
   white-space: normal;
   box-shadow:
@@ -37,10 +40,6 @@
 .twoslash-completion-cursor {
   display: inline-flex;
   flex-direction: column;
-}
-
-.twoslash-completion-list {
-  margin-right: -20rem;
 }
 
 .twoslash-completion-list:hover {
@@ -62,13 +61,17 @@
 }
 
 .twoslash-popup-docs-tag {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: auto 1fr;
   gap: 0.5em;
 }
 
 .twoslash-popup-docs-tag-name {
   font-weight: 600;
+}
+
+.twoslash-popup-docs-tag-value {
+  min-width: 0;
 }
 
 .twoslash-popup-code {
@@ -82,17 +85,18 @@
 
 .twoslash-popup-docs,
 .twoslash-popup-docs-tags {
-  font-size: 14px !important;
-  line-height: 20px !important;
-  margin-top: 8px !important;
+  margin-top: 8px;
 }
-
 /* ===== Hover Info ===== */
 .twoslash:hover .twoslash-hover {
   border-color: currentColor;
 }
 
 .twoslash .twoslash-hover {
+  /* Reset button styles to make it behave like inline text */
+  all: unset;
+
+  /* Restore the original hover indicator styles */
   position: relative;
   transition: border 300ms;
   border-bottom: 1px dotted;
@@ -195,26 +199,30 @@
   }
 }
 
-.fd-twoslash-popover {
+.fd-twoslash-popover-positioner {
   z-index: 50;
-  min-width: 220px;
-  max-width: 380px;
+}
+
+.fd-twoslash-popover {
+  min-width: 240px;
+  max-width: min(450px, 96vw);
   max-height: 400px;
   overflow: auto;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-fd-border);
   background-color: var(--color-fd-popover);
-  padding: calc(var(--spacing) * 2);
+  padding: calc(var(--spacing) * 3);
   font-size: var(--text-sm);
   color: var(--color-fd-popover-foreground);
   box-shadow: var(--shadow-md);
+  transform-origin: var(--transform-origin);
 }
 
-.fd-twoslash-popover[data-state='open'] {
+.fd-twoslash-popover[data-open] {
   animation: var(--animate-fd-popover-in);
 }
 
-.fd-twoslash-popover[data-state='closed'] {
+.fd-twoslash-popover[data-closed] {
   animation: var(--animate-fd-popover-out);
 }
 

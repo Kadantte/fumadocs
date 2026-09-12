@@ -1,4 +1,1788 @@
+## fumadocs-openapi@11.4.2
+
+### `path` in operation renderers
+
+`renderOperationLayout` and `generateCodeSamples` now receive the operation's `path`, so custom layouts no longer need a React context to reach it:
+
+```tsx
+renderOperationLayout: (slots, { path, method }) => (
+  <div>
+    {slots.header}
+    <EndpointPreview path={path} method={method} />
+    {slots.description}
+    {slots.apiPlayground}
+  </div>
+);
+```
+
+## fumadocs-openapi@11.4.1
+
+### Replace `cnfast` with `cn`
+
+Internal refactor only.
+
+## fumadocs-openapi@11.4.0
+
+### Support installing the API playground via Fumadocs CLI
+
+```npm
+npx @fumadocs/cli add fumadocs/openapi/playground
+```
+
+Use it with the `playground.provider` and `playground.render` options, see [Customise UI](https://fumadocs.dev/docs/integrations/openapi/api-page#customise-ui).
+
+### Pass full props to `schemaUI.render`
+
+It now receives the same props as the built-in Schema UI (including `renderMarkdown` and `renderCodeblock`), so a customised Schema UI can act as a drop-in replacement:
+
+```tsx
+schemaUI: {
+  render: (props) => <Schema {...props} />,
+},
+```
+
+### New exports
+
+- OpenAPI schema types from `fumadocs-openapi` (e.g. `OperationObject`, `HttpMethods`).
+- `useRenderContext`, `useServerContext` and `useOperationContext` from `fumadocs-openapi/ui`.
+
+## fumadocs-openapi@11.3.5
+
+### Fix OpenAPI 3.0 `example` in external files crashing `OpenAPIPage`
+
+The version upgrader ran after external documents were embedded under `x-ext`, where it can no longer classify schemas by their JSON path: a schema-level `example` from an external 3.0 file became an Example Object map instead of the JSON Schema `examples` array, crashing the schema UI with `schema.examples is not iterable`.
+
+Each document is now upgraded before bundling embeds it. This also honors the external file's own declared OpenAPI version, so a 3.0 file referenced from a 3.1 document is upgraded too (previously it was skipped entirely).
+
+### Support OpenAPI 3.2 tag hierarchy in `groupBy: 'tag'`
+
+`generateFiles` now follows the tag hierarchy introduced in OpenAPI 3.2: a tag with a `parent` becomes a folder nested inside its parent tag's folder (including the generated `meta.json`), and tags with a `kind` other than `nav` no longer form groups, matching their intent (e.g. `badge`).
+
+Operations referencing undeclared tags or having no tags are no longer dropped silently, which previously could produce an empty output directory. Undeclared tags now form their own group, and untagged operations are grouped under an `unknown` folder with a warning.
+
+## fumadocs-openapi@11.3.4
+
+### Support HTTP Basic client authentication in OAuth password flow
+
+Some OAuth servers require client credentials in an HTTP Basic `Authorization` header instead of the request body. The password flow dialog now offers a Client Authentication select to choose between the two methods, as described in [RFC 6749, section 2.3.1](https://www.rfc-editor.org/rfc/rfc6749#section-2.3.1).
+
+Fix [#3506](https://github.com/fuma-nama/fumadocs/issues/3506)
+
+## fumadocs-openapi@11.3.3
+
+### Fix playground result URL
+
+## fumadocs-openapi@11.3.2
+
+### Improve OAuth Password Flow
+
+Support optional Client ID and Client Secret in the OAuth password flow of API playground, they are sent along the token request when specified.
+
+### Enhance result display of API playground
+
+The response panel now gives you the full picture of a request:
+
+- the resolved request URL, including path and query parameters
+- response headers in a collapsible list
+- response body labeled with its content type
+
+Client-side errors also show the request URL, making issues like a wrong server URL easy to spot.
+
+For custom `ResultDisplay` components, `FetchResult` now carries a `url` field.
+
+`@fumadocs/language` includes translations for the new UI.
+
+## fumadocs-openapi@11.3.1
+
+### Simplify cache
+
+## fumadocs-openapi@11.3.0
+
+### Redesign source API
+
+Content sources can hook into the static loader they are attached to, and dynamic sources can opt out of the loader's in-memory file cache.
+
+`configureStatic` runs when a source is attached to `loader()`, and again whenever `dynamicLoader()` builds a new static loader:
+
+```ts
+export function createMySource(): DynamicSource {
+  return {
+    cache: 'custom',
+    async files() {
+      return loadFiles();
+    },
+    configureStatic({ loader, source }) {
+      // `loader` is the created static loader
+      // `source` is the record key when using named sources
+    },
+    configure(loader, { source }) {
+      loader.invalidate();
+    },
+  };
+}
+```
+
+- `cache: 'memory'` (default): `files()` is called once until `invalidate()`.
+- `cache: 'custom'`: the source caches itself. `dynamicLoader()` re-runs `files()` on `get()` and rebuilds only when the file list is shallowly different (by identity).
+
+### Integrations
+
+GraphQL cross-links are generated from the attached loader instead of a `baseUrl` option on `staticSource()`. Local, OpenAPI, and AsyncAPI `dynamicSource()` use `cache: 'custom'` and reuse generated files by identity until `invalidate()`.
+
+Sanity now uses `cache: 'custom'` when given a `sanityFetch` from `next-sanity/live`, calling `invalidate()` in draft mode is no longer needed.
+
+## fumadocs-openapi@11.2.4
+
+### Improve OpenAPI source generation performance
+
+Reuse the JSON Magic proxy while generating static data for pages from the same OpenAPI document.
+
+## fumadocs-openapi@11.2.2
+
+### Harden `createProxy()` against SSRF
+
+- `allowedOrigins` now defaults to the proxy route's own origin, so an unconfigured proxy is same-origin only instead of an open proxy. A warning is logged when neither `allowedOrigins` nor `filterRequest` is set.
+- The allowlist is now enforced on redirects: an allowed upstream can no longer redirect the proxy to a disallowed origin.
+
+### `allowedOrigins` regex support
+
+`allowedOrigins` entries can now be a `RegExp` in addition to an exact origin string.
+
+### Fix proxy decoding
+
+Fix `ERR_CONTENT_DECODING_FAILED` for compressed upstream responses: the stale `content-encoding`/`content-length` headers are now dropped, since `fetch()` already decodes the body before it is proxied back.
+
+## fumadocs-openapi@11.2.1
+
+### Fix invalid data in generated request examples
+
+Remove invalid data from generated request body example.
+
+## fumadocs-openapi@11.2.0
+
+### Use `@scalar/json-magic` for dereferencing
+
+This will affect all raw access to OpenAPI/AsyncAPI documents, ensure to use `dereferenceShallow()` public API.
+
+### Migrate from `js-yaml` to `yaml`
+
+## fumadocs-openapi@11.1.1
+
+### Fix minor UI inconsistencies
+
+More aligned with original styles.
+
+## fumadocs-openapi@11.1.0
+
+### Add Rust codegen for OpenAPI examples
+
+
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
+## fumadocs-openapi@11.0.6
+
+### Migrate to `cnfast`
+
+Drop `tailwind-merge`.
+
+## fumadocs-openapi@11.0.4
+
+### Improve Schema UI tag rendering
+
+Change behaviour for multi-line value in schema tags.
+
+## fumadocs-openapi@11.0.3
+
+### Fix style warning in usage tabs
+
+
+
+### Fix TypeScript definitions name
+
+The type name now reflect on the actual meaning.
+
 # @fuma-docs/openapi
+
+## 11.0.2
+
+### Patch Changes
+
+- 2b79077: fix missing legacy export
+
+## 11.0.1
+
+### Patch Changes
+
+- 5017289: Use stable `fuma-translate`
+- Updated dependencies [5017289]
+- Updated dependencies [7a77722]
+  - @fumadocs/api-docs@0.0.2
+  - fumadocs-ui@16.10.1
+  - fumadocs-core@16.10.1
+
+## 11.0.0
+
+### Major Changes
+
+- f027706: **Unify RSC & client APIs**
+  - `createAPIPage()` & `createClientAPIPage()` unify into `createOpenAPIPage()`:
+    - no longer accepts an `OpenAPIServer` & `client` option.
+    - requires `api-page.tsx` to be a client component.
+    - server should pass page props using `page.data.getOpenAPIPageProps()` (virtual files) or `openapi.preloadOpenAPIPage()` (pre-generated files).
+  - Remove subpath exports: `ui/client`.
+
+  **Server & loader**
+  - `getSchema()` no longer includes the dereferenced document.
+  - `input`: drop the whole-map factory `() => SchemaMap`. Use a record instead: `[k: string]: string | Document | (() => Awaitable<string | Document>)`.
+
+  **Customization callbacks**
+
+  More context will be available to callbacks:
+  - `generateCodeSamples`: `(method: MethodInformation)` → `({ operation, method, pathItem })`.
+  - `renderOperationLayout`: `(slots, ctx, method)` → `(slots, { operation, method, pathItem, ctx })`.
+  - `playground.render`: `method: MethodInformation` → `({ operation, method, pathItem })`.
+
+  **Drop deprecated APIs**
+  - `transformerOpenAPI()`: use `openapiPlugin()` instead.
+  - `createCodeSample()`: use `CodeUsageGenerator` API instead.
+  - `generateTypeScriptSchema()`: use `generateTypeScriptDefinitions()` instead.
+  - `playground.requestTimeout` option: use `fetchOptions.requestTimeout` instead.
+  - `allowedUrls` option: use `allowedOrigins` or `filterRequest` instead.
+  - `groupStyle` option: use `folderStyle` instead.
+
+  **Other**
+  - `generateFiles` & `beforeWrite` context: remove `documents` field, access from the OpenAPI server instead.
+
+### Minor Changes
+
+- 779efff: **Introduce new translations API**
+
+  It is now powered by `fuma-translate`. Be careful: while the API surface is same, some translation keys are changed, unused labels will be ignored.
+
+### Patch Changes
+
+- Updated dependencies [9b9545f]
+- Updated dependencies [0cc1fac]
+- Updated dependencies [779efff]
+  - fumadocs-core@16.10.0
+  - fumadocs-ui@16.10.0
+
+## 10.10.3
+
+### Patch Changes
+
+- 4f22826: Improve micro-interaction
+
+## 10.10.2
+
+### Patch Changes
+
+- 2771e34: Reduce package size
+
+## 10.10.1
+
+### Patch Changes
+
+- 8eb7782: Support `components.Heading` in client config
+
+## 10.10.0
+
+### Minor Changes
+
+- 2305581: Support anchor link for schema UI properties
+
+### Patch Changes
+
+- c5d1619: Deprecate `renderHeading` option
+
+## 10.9.1
+
+### Patch Changes
+
+- 5d579bd: improve loader API types
+- Updated dependencies [5d579bd]
+- Updated dependencies [84ce691]
+- Updated dependencies [5836093]
+  - fumadocs-core@16.9.2
+  - fumadocs-ui@16.9.2
+
+## 10.9.0
+
+### Minor Changes
+
+- 214d5b0: Introduce new translations API
+
+### Patch Changes
+
+- Updated dependencies [818ed21]
+- Updated dependencies [214d5b0]
+- Updated dependencies [3b66725]
+  - fumadocs-core@16.9.0
+  - fumadocs-ui@16.9.0
+
+## 10.8.6
+
+### Patch Changes
+
+- 975b530: Add Source API methods & Dynamic Source support to OpenAPI server
+- Updated dependencies [768b676]
+  - fumadocs-core@16.8.12
+  - fumadocs-ui@16.8.12
+
+## 10.8.5
+
+### Patch Changes
+
+- da4a81a: Bundle `ajv`
+
+## 10.8.4
+
+### Patch Changes
+
+- e84da60: Bundle `xml-js`
+
+## 10.8.3
+
+### Patch Changes
+
+- d4c78e4: OpenAPI: display a "Deprecated" badge for operations marked as `deprecated: true` in the spec, next to the operation heading and the method/path bar.
+- Updated dependencies [1dc86c7]
+  - fumadocs-core@16.8.11
+  - fumadocs-ui@16.8.11
+
+## 10.8.2
+
+### Patch Changes
+
+- e89fd74: fix hydration errors
+- Updated dependencies [2ca3eab]
+  - fumadocs-core@16.8.9
+  - fumadocs-ui@16.8.9
+
+## 10.8.1
+
+### Patch Changes
+
+- 970b1bf: fix inconsistency in option names
+- Updated dependencies [79d3209]
+  - fumadocs-core@16.8.5
+  - fumadocs-ui@16.8.5
+
+## 10.8.0
+
+### Minor Changes
+
+- cfeb2c5: Fix `@scalar/api-client-react` version as 2.0.2 has a breaking change
+
+### Patch Changes
+
+- Updated dependencies [3ae8809]
+  - fumadocs-ui@16.8.1
+  - fumadocs-core@16.8.1
+
+## 10.7.1
+
+### Patch Changes
+
+- 1ecb7ae: expose more types
+  - fumadocs-ui@16.7.16
+
+## 10.7.0
+
+### Minor Changes
+
+- ccad791: Update min Fumadocs versions requirements
+
+### Patch Changes
+
+- Updated dependencies [e1567e2]
+- Updated dependencies [9a200c8]
+- Updated dependencies [c731a92]
+- Updated dependencies [ccad791]
+- Updated dependencies [a4189ce]
+  - fumadocs-core@16.7.15
+  - fumadocs-ui@16.7.15
+
+## 10.6.8
+
+### Patch Changes
+
+- 9518cc8: Reduce deps
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - fumadocs-ui@16.7.13
+  - fumadocs-core@16.7.13
+  - @fumari/stf@1.0.5
+
+## 10.6.7
+
+### Patch Changes
+
+- 8462aa6: Support displaying response results of different mime types
+- Updated dependencies [5524927]
+- Updated dependencies [d47c4f1]
+  - fumadocs-core@16.7.11
+  - fumadocs-ui@16.7.11
+
+## 10.6.6
+
+### Patch Changes
+
+- f15e322: Improve auth UI for playground
+- Updated dependencies [f15e322]
+  - @fumari/stf@1.0.4
+
+## 10.6.5
+
+### Patch Changes
+
+- 94a45da: workaround ajv limitations
+
+## 10.6.4
+
+### Patch Changes
+
+- 9b88a56: Avoid re-serialization on non-RSC mode
+  - fumadocs-core@16.7.10
+  - fumadocs-ui@16.7.10
+
+## 10.6.3
+
+### Patch Changes
+
+- b9dd611: Improve pre-render layout shift
+- Updated dependencies [f580ef6]
+  - fumadocs-ui@16.7.9
+  - fumadocs-core@16.7.9
+
+## 10.6.2
+
+### Patch Changes
+
+- 9b350d7: Support sync loading components on client mode
+- f1962ec: [Schema UI] prefer alias name for display names
+- Updated dependencies [f7e69a6]
+  - fumadocs-ui@16.7.8
+  - fumadocs-core@16.7.8
+
+## 10.6.1
+
+### Patch Changes
+
+- d38e641: Support forwarding pure playground cookies with proxy
+
+## 10.6.0
+
+### Minor Changes
+
+- 9b7b5b5: Support non-RSC environment via `createClientAPIPage()`
+
+### Patch Changes
+
+- b8a95e8: Improve performance
+- a5186a7: Support `watch` option
+- Updated dependencies [9eb3c84]
+- Updated dependencies [0f39a9f]
+- Updated dependencies [0a6507b]
+  - fumadocs-ui@16.7.7
+  - fumadocs-core@16.7.7
+
+## 10.5.0
+
+### Minor Changes
+
+- 0edf9ce: Support `meta.json` file generation
+
+### Patch Changes
+
+- Updated dependencies [6849807]
+  - fumadocs-ui@16.7.6
+  - fumadocs-core@16.7.6
+
+## 10.4.1
+
+### Patch Changes
+
+- 440b954: support unsetting auth fields in playground
+- Updated dependencies [11b8691]
+- Updated dependencies [75b0b94]
+  - fumadocs-ui@16.7.1
+  - fumadocs-core@16.7.1
+
+## 10.4.0
+
+### Minor Changes
+
+- bdffeba: Implement i18n
+- 1fc5549: Bump deps
+
+### Patch Changes
+
+- 42bf43e: Implement newer JSON Schema spec `$ref` resolution behaviour
+- Updated dependencies [8bdee70]
+- Updated dependencies [bdffeba]
+- Updated dependencies [3d17757]
+- Updated dependencies [f45d703]
+- Updated dependencies [45aa454]
+  - fumadocs-ui@16.7.0
+  - fumadocs-core@16.7.0
+
+## 10.3.18
+
+### Patch Changes
+
+- c1c954d: fix schema intersection
+- Updated dependencies [86d3abb]
+  - fumadocs-ui@16.6.15
+  - fumadocs-core@16.6.15
+
+## 10.3.17
+
+### Patch Changes
+
+- e2e0782: Fix broken `dereference-json-schema` import in built output caused by `unbundle + inlineOnly` producing hardcoded `.pnpm/` paths
+- Updated dependencies [d35f30c]
+- Updated dependencies [ae3e742]
+- Updated dependencies [269dfb3]
+  - fumadocs-core@16.6.11
+  - fumadocs-ui@16.6.11
+
+## 10.3.16
+
+### Patch Changes
+
+- 1f4ccb4: expose heading & codeblock renderer
+- Updated dependencies [9b5c2dd]
+  - fumadocs-core@16.6.10
+  - fumadocs-ui@16.6.10
+
+## 10.3.15
+
+### Patch Changes
+
+- 440a7ef: Fix intersection resolution
+- e68700e: fix parameter encoding
+
+## 10.3.14
+
+### Patch Changes
+
+- 53856d2: Improve dereference & TypeScript generation
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - fumadocs-ui@16.6.8
+  - fumadocs-core@16.6.8
+  - @fumari/stf@1.0.3
+
+## 10.3.13
+
+### Patch Changes
+
+- 825f401: enable Typescript definition generation for request body
+- 146bb4b: Support code usage generator registry
+- Updated dependencies [8faa2e4]
+  - fumadocs-ui@16.6.7
+  - fumadocs-core@16.6.7
+
+## 10.3.12
+
+### Patch Changes
+
+- fcdaa9f: better schema popover UI
+- a6e3b58: improve default value generation
+- 41ac2c6: fix `$ref` handling in stringifier
+- b01665e: support lazy field reveal on playground
+- 9013195: fix typescript schema generation
+- Updated dependencies [38bd784]
+- Updated dependencies [bd8c33a]
+  - fumadocs-ui@16.6.6
+  - @fumari/stf@1.0.2
+  - fumadocs-core@16.6.6
+
+## 10.3.11
+
+### Patch Changes
+
+- 5a9b381: Pass `isRequired` to `FieldSet` for parameter enum fields in playground, fixing required enum parameters incorrectly showing an "Unset" option.
+- 21e60c3: support cleaning namespace information
+- Updated dependencies [21e60c3]
+  - @fumari/stf@1.0.1
+
+## 10.3.10
+
+### Patch Changes
+
+- ff9e919: add unset button to non-primitive fields
+- Updated dependencies [fe37b9f]
+- Updated dependencies [fe37b9f]
+  - @fumari/stf@1.0.0
+
+## 10.3.9
+
+### Patch Changes
+
+- 5537900: allow optional parameter schema
+
+## 10.3.8
+
+### Patch Changes
+
+- f5e7993: improve edge case handling
+- Updated dependencies [1a614de]
+- Updated dependencies [6ab6692]
+  - fumadocs-core@16.6.5
+  - fumadocs-ui@16.6.5
+
+## 10.3.7
+
+### Patch Changes
+
+- 3f8c9b0: Support OpenAPI 3.2 security scheme deprecation
+- Updated dependencies [8f8e7f0]
+  - fumadocs-ui@16.6.4
+  - fumadocs-core@16.6.4
+
+## 10.3.6
+
+### Patch Changes
+
+- 6ded66b: Improve server selector UI
+- Updated dependencies [1c26656]
+  - fumadocs-ui@16.6.3
+  - fumadocs-core@16.6.3
+
+## 10.3.5
+
+### Patch Changes
+
+- 013bba7: support servers override
+- Updated dependencies [9241992]
+- Updated dependencies [64a0057]
+  - fumadocs-ui@16.6.0
+  - fumadocs-core@16.6.0
+
+## 10.3.4
+
+### Patch Changes
+
+- 7872e27: fix change detector
+- Updated dependencies [7872e27]
+- Updated dependencies [1ad8a38]
+- Updated dependencies [3e8efb0]
+  - @fumari/stf@0.0.3
+  - fumadocs-core@16.5.4
+  - fumadocs-ui@16.5.4
+
+## 10.3.3
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-ui@16.5.2
+  - fumadocs-core@16.5.2
+  - @fumari/stf@0.0.2
+
+## 10.3.2
+
+### Patch Changes
+
+- 53ad20b: Pre-scan class names to optimize Tailwind CSS compilation performance
+- Updated dependencies [c08364a]
+- Updated dependencies [53ad20b]
+  - fumadocs-ui@16.5.1
+  - fumadocs-core@16.5.1
+
+## 10.3.1
+
+### Minor Changes
+
+- c03f8c3: Support `/ui/base` for reduced bundle size
+
+### Patch Changes
+
+- Updated dependencies [9ba1250]
+  - fumadocs-ui@16.5.0
+  - fumadocs-core@16.5.0
+
+## 10.2.7
+
+### Patch Changes
+
+- eb3d763: Break long words in openapi examples
+- 2abaff9: Improve object inputs
+- Updated dependencies [430a5f1]
+- Updated dependencies [099fde7]
+- Updated dependencies [6fd7e63]
+  - fumadocs-ui@16.4.10
+  - fumadocs-core@16.4.10
+
+## 10.2.6
+
+### Patch Changes
+
+- 8d1362e: Fixed a performance issue where getSchema() would bypass the internal cache and reparse the OpenAPI spec on every call. This was caused by calling the internal getSchemas() function instead of the cached method.
+
+## 10.2.5
+
+### Patch Changes
+
+- cadff12: Use internal implementation for form in OpenAPI playground
+- 897cc26: Improve schema UI array rendering
+- Updated dependencies [6ac37c4]
+  - @fumari/stf@0.0.1
+
+## 10.2.4
+
+### Patch Changes
+
+- e55510b: fix unknown parameter encoding
+- Updated dependencies [9f06196]
+  - fumadocs-ui@16.4.5
+  - fumadocs-core@16.4.5
+
+## 10.2.3
+
+### Patch Changes
+
+- 7e58c8e: Fix Parameter Serialization
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+  - fumadocs-ui@16.4.2
+
+## 10.2.2
+
+### Patch Changes
+
+- b752aff: Add `getSchema()` to virtual pages
+- Updated dependencies [da98fe2]
+- Updated dependencies [a3b7919]
+  - fumadocs-ui@16.4.0
+  - fumadocs-core@16.4.0
+
+## 10.2.1
+
+### Patch Changes
+
+- 058a46b: Support `structuredData` in virtual file source
+- 52e84ad: improve schema UI for large unions
+
+## 10.2.0
+
+### Minor Changes
+
+- a69b060: Support both Base UI and Radix UI as base component libraries
+
+### Patch Changes
+
+- Updated dependencies [a69b060]
+  - fumadocs-ui@16.3.0
+  - fumadocs-core@16.3.0
+  - @fumadocs/ui@16.3.0
+
+## 10.1.4
+
+### Patch Changes
+
+- 90ada4b: Fix example value generation for parameters
+
+## 10.1.3
+
+### Patch Changes
+
+- ddeeb74: Improve error message on invalid document props
+- fb3440c: fix possible hydration errors
+- Updated dependencies [8469c6d]
+- Updated dependencies [7292424]
+  - fumadocs-ui@16.2.5
+  - fumadocs-core@16.2.5
+
+## 10.1.2
+
+### Patch Changes
+
+- 88150ae: Handle empty summary when generating display name
+
+## 10.1.1
+
+### Patch Changes
+
+- 25393cd: Fix duplicated security scheme name in requirements
+- 928cc25: Fix wrong option types
+
+## 10.1.0
+
+### Minor Changes
+
+- 4b2a7e4: Require peer dep of Fumadocs 16.2.0
+- e5c9f7f: Display webhook request examples
+
+### Patch Changes
+
+- ed67af0: enhance schema generation by merging properties from extended schema properties
+- 196d71c: support webhook badge
+- 0e327bd: use container query
+- c44d999: Fix schema scope in API playgrounds
+- 6635eb5: Improve UX
+- 0e327bd: Improve `allOf` merging util
+- 60e3324: improve description rendering
+- Updated dependencies [80579fd]
+- Updated dependencies [a9f4eda]
+- Updated dependencies [36eb90a]
+- Updated dependencies [5d65002]
+- Updated dependencies [9a39883]
+- Updated dependencies [12d3f78]
+  - fumadocs-ui@16.2.0
+  - fumadocs-core@16.2.0
+
+## 10.0.11
+
+### Patch Changes
+
+- 5ac448a: Improve response rendering
+- Updated dependencies [2e01720]
+- Updated dependencies [15bd183]
+- Updated dependencies [42ad84c]
+  - fumadocs-core@16.1.0
+  - fumadocs-ui@16.1.0
+
+## 10.0.10
+
+### Patch Changes
+
+- fb3401a: Fix errors on empty callbacks
+- Updated dependencies [fe380da]
+- Updated dependencies [40d9b75]
+- Updated dependencies [ade44d0]
+  - fumadocs-core@16.0.15
+  - fumadocs-ui@16.0.15
+
+## 10.0.9
+
+### Patch Changes
+
+- Updated dependencies [c3b8474]
+  - fumadocs-core@16.0.14
+  - fumadocs-ui@16.0.14
+
+## 10.0.8
+
+### Patch Changes
+
+- Updated dependencies [88dae4d]
+  - fumadocs-ui@16.0.13
+  - fumadocs-core@16.0.13
+
+## 10.0.7
+
+### Patch Changes
+
+- Updated dependencies [c5c00e9]
+  - fumadocs-core@16.0.12
+  - fumadocs-ui@16.0.12
+
+## 10.0.6
+
+### Patch Changes
+
+- e792e43: hotfix recursive `oneOf` schema UI
+
+## 10.0.5
+
+### Patch Changes
+
+- Updated dependencies [ff68f69]
+- Updated dependencies [00058c8]
+  - fumadocs-core@16.0.11
+  - fumadocs-ui@16.0.11
+
+## 10.0.4
+
+### Patch Changes
+
+- 0ada792: Enhance Schema UI to display inherited properties for `oneOf`.
+- Updated dependencies [112e8d9]
+- Updated dependencies [733b01e]
+  - fumadocs-ui@16.0.10
+  - fumadocs-core@16.0.10
+
+## 10.0.3
+
+### Patch Changes
+
+- 9a7fd08: Improve integer fields handling
+- Updated dependencies [2eef888]
+  - fumadocs-ui@16.0.9
+  - fumadocs-core@16.0.9
+
+## 10.0.2
+
+### Patch Changes
+
+- 6d0ddb9: fix unset values on number & boolean fields
+
+## 10.0.1
+
+### Patch Changes
+
+- 2347d33: Fix Scalar integration
+
+## 10.0.0
+
+### Major Changes
+
+- ccae0ac: Rename option `content.showExampleInFields` to `schemaUI.showExample`.
+- 87cdffa: **Drop `renderer` & `fields` API**
+
+  Fumadocs OpenAPI now expects per-feature customizations, dropping the old centralized `renderer` API.
+
+  ```ts
+  // components/api-page.tsx
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+
+  export const APIPage = createAPIPage(openapi, {
+    // e.g. customize render functions
+    content: {
+      renderResponseTabs,
+      renderAPIExampleLayout,
+      renderAPIExampleUsageTabs,
+    },
+  });
+  ```
+
+  For migrating the `fields` option of Playground, you can use `render*` APIs on client configs.
+
+  ```ts
+  // components/api-page.client.tsx
+  'use client';
+  import { defineClientConfig } from 'fumadocs-openapi/ui/client';
+
+  export default defineClientConfig({
+    playground: {
+      renderParameterField: (fieldName, field) => ...
+    }
+  })
+  ```
+
+  You can customize the renderers of different layouts:
+
+  ```tsx
+  // components/api-page.tsx
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+
+  export const APIPage = createAPIPage(openapi, {
+    content: {
+      renderResponseTabs: (tabs) => <div></div>,
+      renderAPIExampleLayout: ({ selector, usageTabs, responseTabs }) => (
+        <div></div>
+      ),
+      renderAPIExampleUsageTabs: (generators) => <div></div>,
+      renderPageLayout: ({ operations, webhooks }) => <div></div>,
+      renderOperationLayout: (slots) => <div></div>,
+      renderWebhookLayout: ({
+        header,
+        authSchemes,
+        parameters,
+        body,
+        responses,
+        callbacks,
+      }) => <div></div>,
+    },
+  });
+  ```
+
+- 40d0fa3: **Expect OpenAPI server to use `generateFiles()`**
+
+  File generation is now part of OpenAPI server, the `input` field requires the server instead of string array.
+
+  Before:
+
+  ```ts
+  import { openapi } from "@/lib/openapi";
+
+  void generateFiles({
+    input: ["./products.yaml"],
+    output: "./content/docs",
+  });
+  ```
+
+  After:
+
+  ```ts
+  import { generateFiles } from "fumadocs-openapi";
+  import { openapi } from "@/lib/openapi";
+
+  void generateFiles({
+    input: openapi,
+    output: "./content/docs",
+  });
+  ```
+
+- aa4e1ad: **Redesign `createOpenAPI` usage**
+  1. Isolate API page and API server.
+
+  Before:
+
+  ```ts
+  // lib/openapi.ts
+  import { createOpenAPI } from 'fumadocs-openapi/server';
+  import path from 'node:path';
+
+  export const openapi = createOpenAPI({
+    input: [path.resolve('./scalar.yaml')],
+    proxyUrl: '/api/proxy',
+
+    mediaAdapters: { ... },
+    shikiOptions: {
+      themes: {
+        dark: 'vesper',
+        light: 'vitesse-light',
+      },
+    },
+  });
+  ```
+
+  After:
+
+  ```ts
+  // lib/openapi.ts
+  import { createOpenAPI } from "fumadocs-openapi/server";
+  import path from "node:path";
+
+  export const openapi = createOpenAPI({
+    input: [path.resolve("./scalar.yaml")],
+    proxyUrl: "/api/proxy",
+  });
+  ```
+
+  ```ts
+  // components/api-page.tsx
+  import { openapi } from '@/lib/openapi';
+  import { createAPIPage } from 'fumadocs-openapi/ui';
+
+  export const APIPage = createAPIPage(openapi, {
+    mediaAdapters: { ... },
+    shikiOptions: {
+      themes: {
+        dark: 'vesper',
+        light: 'vitesse-light',
+      },
+    },
+  });
+  ```
+
+  2. Remove `disablePlayground` from `createAPIPage()`, use `playground.enabled` instead:
+
+  ```ts
+  // components/api-page.tsx
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+
+  export const APIPage = createAPIPage(openapi, {
+    playground: {
+      enabled: false,
+    },
+  });
+  ```
+
+  3. Support client config:
+
+  ```tsx
+  // components/api-page.tsx
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+  import client from "./api-page.client";
+
+  export const APIPage = createAPIPage(openapi, {
+    client,
+  });
+  ```
+
+  ```tsx
+  // components/api-page.client.tsx
+  "use client";
+  import { defineClientConfig } from "fumadocs-openapi/ui/client";
+
+  export default defineClientConfig({
+    playground: {
+      transformAuthInputs: (inputs) => [
+        ...inputs,
+        {
+          fieldName: "auth.tests",
+          children: <div>Tests</div>,
+          defaultValue: "",
+        },
+      ],
+    },
+  });
+  ```
+
+  4. Prefer client config for `adapter.client`:
+
+  Forwarding client-side media adapters is also done with `api-page.client.tsx`:
+
+  ```tsx
+  // components/api-page.tsx
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+  import { adapters } from "./my-media-adapters";
+  import client from "./api-page.client";
+
+  export const APIPage = createAPIPage(openapi, {
+    client,
+    mediaAdapters: adapters,
+  });
+  ```
+
+  ```tsx
+  // components/api-page.client.tsx
+  "use client";
+  import { defineClientConfig } from "fumadocs-openapi/ui/client";
+  import { adapters } from "./my-media-adapters";
+
+  export default defineClientConfig({
+    mediaAdapters: adapters,
+  });
+  ```
+
+### Minor Changes
+
+- 189028a: Add `storageKeyPrefix` option to isolate `localStorage` for multiple API instances
+
+  When using multiple `createOpenAPI()` instances in the same application, the server selection state would bleed between different APIs because they all shared the same storage key prefix.
+  Set a prefix to avoid this.
+
+  **Usage:**
+
+  ```tsx
+  // components/api-page.client.tsx
+  "use client";
+  import { defineClientConfig } from "fumadocs-openapi/ui/client";
+
+  export default defineClientConfig({
+    storageKeyPrefix: "fumadocs-openapi-custom-",
+  });
+  ```
+
+### Patch Changes
+
+- c1026b8: Fix TypeScript schema wrong output.
+
+  Note: code formatting has been disabled to improve performance.
+
+- ca09b6a: Core: Support accessing MDX plugins separately at `fumadocs-core/mdx-plugins/*`
+- Updated dependencies [bc97236]
+- Updated dependencies [ca09b6a]
+- Updated dependencies [c0df2c4]
+- Updated dependencies [117ad86]
+  - fumadocs-core@16.0.8
+  - fumadocs-ui@16.0.8
+
+## 9.7.3
+
+### Patch Changes
+
+- Updated dependencies [f97cd1e]
+- Updated dependencies [f7e15e2]
+  - fumadocs-core@16.0.7
+  - fumadocs-ui@16.0.7
+
+## 9.7.2
+
+### Patch Changes
+
+- f0111ba: no longer generate default values for optional params
+- 9845ffc: Support `+variant` media types
+- Updated dependencies [b95b0cf]
+  - fumadocs-core@16.0.6
+  - fumadocs-ui@16.0.6
+
+## 9.7.1
+
+### Patch Changes
+
+- Updated dependencies [8221785]
+  - fumadocs-core@16.0.5
+  - fumadocs-ui@16.0.5
+
+## 9.7.0
+
+### Minor Changes
+
+- ef73516: Support `per: custom`
+
+## 9.6.5
+
+### Patch Changes
+
+- d9d73f3: Support `groupBy` function value
+- Updated dependencies [99971c7]
+  - fumadocs-core@16.0.4
+  - fumadocs-ui@16.0.4
+
+## 9.6.4
+
+### Patch Changes
+
+- fumadocs-core@16.0.3
+- fumadocs-ui@16.0.3
+
+## 9.6.3
+
+### Patch Changes
+
+- cc179fb: Generate Python objects for code examples
+
+## 9.6.2
+
+### Patch Changes
+
+- Updated dependencies [d511232]
+  - fumadocs-core@16.0.2
+  - fumadocs-ui@16.0.2
+
+## 9.6.1
+
+### Patch Changes
+
+- Updated dependencies [45f0c1f]
+  - fumadocs-core@16.0.1
+  - fumadocs-ui@16.0.1
+
+## 9.6.0
+
+### Minor Changes
+
+- 8ebd28f: _Redesign schema UI to leverage CSR_
+
+  Fumadocs OpenAPI now uses CSR to render recursive components, hugely reducing the size of page for highly nested JSON schemas & improve performance.
+
+- ef9737d: Add reset value button to non-required fields
+
+### Patch Changes
+
+- 21fcc0b: Support `content.showExampleInFields` option
+- 4a36701: avoid render-time form modifications
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [1494340]
+- Updated dependencies [230c6bf]
+- Updated dependencies [851897c]
+- Updated dependencies [de0ce6d]
+- Updated dependencies [4049ccc]
+- Updated dependencies [0ed0ca6]
+- Updated dependencies [429c41a]
+- Updated dependencies [5210f18]
+- Updated dependencies [cbc93e9]
+- Updated dependencies [42f09c3]
+- Updated dependencies [55afd8a]
+- Updated dependencies [5966e23]
+  - fumadocs-ui@16.0.0
+  - fumadocs-core@16.0.0
+
+## 9.5.0
+
+### Minor Changes
+
+- 5cb199f: Support generating virtual pages for Source API
+
+### Patch Changes
+
+- Updated dependencies [ce2be59]
+- Updated dependencies [31b9494]
+  - fumadocs-core@15.8.4
+  - fumadocs-ui@15.8.4
+
+## 9.4.1
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+- Updated dependencies [7b0d839]
+  - fumadocs-core@15.8.3
+  - fumadocs-ui@15.8.3
+
+## 9.4.0
+
+### Minor Changes
+
+- ac8e67d: OpenAPI: Custom request timeout for API playground
+
+### Patch Changes
+
+- Updated dependencies [90cf1fe]
+- Updated dependencies [ad9a004]
+- Updated dependencies [90cf1fe]
+- Updated dependencies [6c3bde5]
+- Updated dependencies [747bdbc]
+  - fumadocs-ui@15.8.2
+  - fumadocs-core@15.8.2
+
+## 9.3.13
+
+### Patch Changes
+
+- f04547f: Publish `plugins` API on `loader()`
+- Updated dependencies [71bce86]
+- Updated dependencies [f04547f]
+  - fumadocs-core@15.8.1
+  - fumadocs-ui@15.8.1
+
+## 9.3.12
+
+### Patch Changes
+
+- 0bb67d3: Improve error message
+- 46e76eb: Fix `minItems` being ignored
+- Updated dependencies [655bb46]
+- Updated dependencies [53a0635]
+- Updated dependencies [d1ae3e8]
+- Updated dependencies [6548a59]
+- Updated dependencies [51268ec]
+- Updated dependencies [51268ec]
+  - fumadocs-core@15.8.0
+  - fumadocs-ui@15.8.0
+
+## 9.3.11
+
+### Patch Changes
+
+- 3e7e178: OpenAPI: handle undefined description in index.md generation
+
+## 9.3.10
+
+### Patch Changes
+
+- Updated dependencies [982aed6]
+  - fumadocs-core@15.7.13
+  - fumadocs-ui@15.7.13
+
+## 9.3.9
+
+### Patch Changes
+
+- Updated dependencies [846b28a]
+- Updated dependencies [2b30315]
+  - fumadocs-core@15.7.12
+  - fumadocs-ui@15.7.12
+
+## 9.3.8
+
+### Patch Changes
+
+- e37b291: Migrate to `@scalar/openapi-parser@0.20.3`
+- Updated dependencies [9304db9]
+- Updated dependencies [dd7338b]
+  - fumadocs-ui@15.7.11
+  - fumadocs-core@15.7.11
+
+## 9.3.7
+
+### Patch Changes
+
+- 0146178: include content encoding into proxied response
+- 44a560f: Remove undefined values in generated frontmatter
+- Updated dependencies [c948f59]
+  - fumadocs-core@15.7.10
+  - fumadocs-ui@15.7.10
+
+## 9.3.6
+
+### Patch Changes
+
+- Updated dependencies [45c7531]
+- Updated dependencies [d135efd]
+- Updated dependencies [4082acc]
+- Updated dependencies [4082acc]
+  - fumadocs-ui@15.7.9
+  - fumadocs-core@15.7.9
+
+## 9.3.5
+
+### Patch Changes
+
+- Updated dependencies [f65778d]
+- Updated dependencies [ba3382f]
+- Updated dependencies [e4c12a3]
+- Updated dependencies [efba995]
+- Updated dependencies [bec3b36]
+  - fumadocs-core@15.7.8
+  - fumadocs-ui@15.7.8
+
+## 9.3.4
+
+### Patch Changes
+
+- Updated dependencies [0b53056]
+- Updated dependencies [3490285]
+  - fumadocs-core@15.7.7
+  - fumadocs-ui@15.7.7
+
+## 9.3.3
+
+### Patch Changes
+
+- Updated dependencies [dc6d8a0]
+  - fumadocs-ui@15.7.6
+  - fumadocs-core@15.7.6
+
+## 9.3.2
+
+### Patch Changes
+
+- Updated dependencies [cedc494]
+  - fumadocs-core@15.7.5
+  - fumadocs-ui@15.7.5
+
+## 9.3.1
+
+### Patch Changes
+
+- 585e1b2: Enhance resolveRequestData to support query parameters in path (legacy OpenAPI behavior)
+- e1b61ea: Unify input id and output documents
+- Updated dependencies [302cdc2]
+- Updated dependencies [02d3453]
+  - fumadocs-ui@15.7.4
+  - fumadocs-core@15.7.4
+
+## 9.3.0
+
+### Minor Changes
+
+- 22371ce: Support `index` generation in `generateFiles`: create index files to link all generated pages.
+
+### Patch Changes
+
+- 3d3790b: Use schema ID for anti-circular reference
+- Updated dependencies [f6de900]
+- Updated dependencies [6d97379]
+- Updated dependencies [e776ee5]
+  - fumadocs-ui@15.7.3
+  - fumadocs-core@15.7.3
+
+## 9.2.3
+
+### Patch Changes
+
+- Updated dependencies [88b5a4e]
+- Updated dependencies [039b24b]
+- Updated dependencies [08eee2b]
+  - fumadocs-core@15.7.2
+  - fumadocs-ui@15.7.2
+
+## 9.2.2
+
+### Patch Changes
+
+- Updated dependencies [195b090]
+- Updated dependencies [e1c84a2]
+- Updated dependencies [b4e6147]
+  - fumadocs-core@15.7.1
+  - fumadocs-ui@15.7.1
+
+## 9.2.1
+
+### Patch Changes
+
+- 2122783: Fix absolute path when `input` is string/array
+- Updated dependencies [514052e]
+- Updated dependencies [e254c65]
+- Updated dependencies [ec75601]
+- Updated dependencies [e785f98]
+- Updated dependencies [0531bf4]
+- Updated dependencies [50eb07f]
+- Updated dependencies [67df155]
+- Updated dependencies [b109d06]
+- Updated dependencies [b99cf51]
+  - fumadocs-core@15.7.0
+  - fumadocs-ui@15.7.0
+
+## 9.2.0
+
+### Minor Changes
+
+- 2ef7f6b: **Introduce `input` API on `createOpenAPI()`, unify `generateFiles()`**
+
+  Migration: Move the server object from `lib/source` to `lib/openapi`
+
+  ```ts
+  import { createOpenAPI } from "fumadocs-openapi/server";
+
+  export const openapi = createOpenAPI({
+    input: ["./my-schema.json"],
+  });
+  ```
+
+  Use the server object for `generateFiles()`:
+
+  ```ts
+  import { generateFiles } from "fumadocs-openapi";
+  import { openapi } from "@/lib/openapi";
+
+  void generateFiles({
+    input: openapi,
+    output: "./content/docs",
+    // we recommend to enable it
+    // make sure your endpoint description doesn't break MDX syntax.
+    includeDescription: true,
+  });
+  ```
+
+### Patch Changes
+
+- Updated dependencies [fe31a72]
+  - fumadocs-ui@15.6.12
+  - fumadocs-core@15.6.12
+
+## 9.1.13
+
+### Patch Changes
+
+- Updated dependencies [6de6ff3]
+- Updated dependencies [f0b1fee]
+  - fumadocs-ui@15.6.11
+  - fumadocs-core@15.6.11
+
+## 9.1.12
+
+### Patch Changes
+
+- 8e3c07e: load default examples without lazy loading
+
+## 9.1.11
+
+### Patch Changes
+
+- c07af6f: Support `serverContext` & `createCodeSample` for custom `generateCodeSamples()` function
+- Updated dependencies [569bc26]
+- Updated dependencies [817c237]
+  - fumadocs-core@15.6.10
+  - fumadocs-ui@15.6.10
+
+## 9.1.10
+
+### Patch Changes
+
+- 86c973d: fix(multipart): improve encode logic for multipart/form-data
+
+## 9.1.9
+
+### Patch Changes
+
+- 790494a: fix(ui): Allow decimal values in number inputs
+- 04a73ea: Remove explicit form data `Content-Type`
+
+## 9.1.8
+
+### Patch Changes
+
+- Updated dependencies [0ab2cdd]
+- Updated dependencies [f2b22ca]
+  - fumadocs-core@15.6.9
+  - fumadocs-ui@15.6.9
+
+## 9.1.7
+
+### Patch Changes
+
+- 224f259: Make Next.js dependency optional
+- 6e29dd1: Fix Waku compatibility
+  - fumadocs-core@15.6.8
+  - fumadocs-ui@15.6.8
+
+## 9.1.6
+
+### Patch Changes
+
+- Updated dependencies [e9fef34]
+- Updated dependencies [d4a9037]
+- Updated dependencies [6fa1442]
+  - fumadocs-ui@15.6.7
+  - fumadocs-core@15.6.7
+
+## 9.1.5
+
+### Patch Changes
+
+- ec7b9ed: Fix request serialization stripped auth parameters
+- Updated dependencies [2a0b45b]
+- Updated dependencies [5913cc4]
+- Updated dependencies [1b0e9d5]
+- Updated dependencies [79248f6]
+  - fumadocs-ui@15.6.6
+  - fumadocs-core@15.6.6
+
+## 9.1.4
+
+### Patch Changes
+
+- d449bb1: fix `groupBy: route` ignoring curly braces
+- ac33c3c: Add method option and Content-Type header to generated JavaScript code examples
+- Updated dependencies [658fa96]
+  - fumadocs-core@15.6.5
+  - fumadocs-ui@15.6.5
+
+## 9.1.3
+
+### Patch Changes
+
+- Updated dependencies [dca17d7]
+  - fumadocs-ui@15.6.4
+  - fumadocs-core@15.6.4
+
+## 9.1.2
+
+### Patch Changes
+
+- 742c0a6: fix spacing issues
+
+## 9.1.1
+
+### Patch Changes
+
+- dd94271: Fix handling of primitive types in `anyOf`/`allOf`
+- Updated dependencies [a2d7940]
+  - fumadocs-ui@15.6.3
+  - fumadocs-core@15.6.3
+
+## 9.1.0
+
+### Minor Changes
+
+- b60c8ed: **Support Parameter Serialization**
+
+  Maybe need to update your code if you've added custom media adapters.
+
+### Patch Changes
+
+- Updated dependencies [1e50889]
+- Updated dependencies [353c139]
+- Updated dependencies [5844c6f]
+  - fumadocs-ui@15.6.2
+  - fumadocs-core@15.6.2
+
+## 9.0.18
+
+### Patch Changes
+
+- ae38ed0: Fix Scalar `upgrade()` is somehow ignored
+- a35597e: Use new codeblock tab style
+- 8f69e33: Always display collapsible for array items
+
+## 9.0.17
+
+### Patch Changes
+
+- 7328590: OpenAPI: Fix non-undefined values not rendering
+- b606d36: support custom slugify function for generate files
+
+## 9.0.16
+
+### Patch Changes
+
+- Updated dependencies [1a902ff]
+  - fumadocs-core@15.6.1
+  - fumadocs-ui@15.6.1
+
+## 9.0.15
+
+### Patch Changes
+
+- 504ab2e: Fix minor UI bugs
+- Updated dependencies [d0f8a15]
+- Updated dependencies [84918b8]
+- Updated dependencies [bf15617]
+- Updated dependencies [f8d1709]
+  - fumadocs-core@15.6.0
+  - fumadocs-ui@15.6.0
+
+## 9.0.14
+
+### Patch Changes
+
+- Updated dependencies [e9b1c9c]
+- Updated dependencies [d5c9b11]
+- Updated dependencies [0d3f76b]
+  - fumadocs-ui@15.5.5
+  - fumadocs-core@15.5.5
+
+## 9.0.13
+
+### Patch Changes
+
+- Updated dependencies [4a1d3cf]
+- Updated dependencies [35c3c0b]
+- Updated dependencies [58b7596]
+  - fumadocs-ui@15.5.4
+  - fumadocs-core@15.5.4
+
+## 9.0.12
+
+### Patch Changes
+
+- b1f805a: Parse body optionally in proxy
+
+## 9.0.11
+
+### Patch Changes
+
+- Updated dependencies [7d1ac21]
+  - fumadocs-core@15.5.3
+  - fumadocs-ui@15.5.3
+
+## 9.0.10
+
+### Patch Changes
+
+- 7a45921: Add `absolutePath` and `path` properties to pages, mark `file` as deprecated
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
+- bc7af38: Support C# code example
+- 250ab97: Support Java code example
+- Updated dependencies [b675728]
+- Updated dependencies [7a45921]
+- Updated dependencies [1b7bc4b]
+- Updated dependencies [82fc4c8]
+  - fumadocs-ui@15.5.2
+  - fumadocs-core@15.5.2
+
+## 9.0.9
+
+### Patch Changes
+
+- 201235f: Fix trailing slashes being normalized
+
+## 9.0.8
+
+### Patch Changes
+
+- d435088: fix proxy clone request
+
+## 9.0.7
+
+### Patch Changes
+
+- 77461e5: Fix root schema manipulation with TypeScript definition generation
+
+## 9.0.6
+
+### Patch Changes
+
+- 99e3c95: Consistent URL resolution
+- Updated dependencies [b4916d2]
+- Updated dependencies [8738b9c]
+- Updated dependencies [68526ea]
+- Updated dependencies [a66886b]
+  - fumadocs-core@15.5.1
+  - fumadocs-ui@15.5.1
 
 ## 9.0.5
 
@@ -52,12 +1836,11 @@
 - bdef238: **Redesign `generateFiles`**
 
   This redesign will finalize the behaviour of `generateFiles` to make it simpler, consistent across different versions of Fumadocs OpenAPI.
-
   - Abandoned `groupByFolder`, it's deprecated long time ago and can be replaced with `groupBy`.
   - Improved type safety, `groupBy` is now only available with `per` set to `operation`.
   - `name` usage changed (see below).
 
-  The `name` option was supposed to designate a output path for generated page. Since `groupBy` was introduced, `name` became somehow useless because its design doesn't work well with `groupBy`.
+  The `name` option was supposed to designate an output path for generated page. Since `groupBy` was introduced, `name` became somehow useless because its design doesn't work well with `groupBy`.
 
   **New `name` Design**:
 
@@ -65,15 +1848,15 @@
 
   ```ts
   generateFiles({
-    input: ['./content/docs/openapi/museum.yaml'],
-    output: './content/docs/openapi/(generated)',
-    per: 'operation',
+    input: ["./content/docs/openapi/museum.yaml"],
+    output: "./content/docs/openapi/(generated)",
+    per: "operation",
     name: (output, document) => {
       // page info
       output.item;
       // parsed OpenAPI schema
       document;
-      return 'dir/my-file';
+      return "dir/my-file";
     },
   });
   ```
@@ -82,11 +1865,11 @@
 
   ```ts
   generateFiles({
-    input: ['./content/docs/openapi/museum.yaml'],
-    output: './content/docs/openapi/(generated)',
-    per: 'operation',
+    input: ["./content/docs/openapi/museum.yaml"],
+    output: "./content/docs/openapi/(generated)",
+    per: "operation",
     name: {
-      algorithm: 'v1',
+      algorithm: "v1",
     },
   });
   ```
@@ -97,14 +1880,13 @@
 
   ```ts
   generateFiles({
-    input: ['./content/docs/openapi/museum.yaml'],
-    output: './content/docs/openapi/(generated)',
-    per: 'operation',
+    input: ["./content/docs/openapi/museum.yaml"],
+    output: "./content/docs/openapi/(generated)",
+    per: "operation",
   });
   ```
 
   With `per: operation`, you can use `groupBy` to group pages:
-
   - tag: `{tag}/{file}`
   - route: `{endpoint}/{method}` (it will ignore the `name` option)
   - none: `{file}` (default)
@@ -262,11 +2044,11 @@
   We highly recommend to use the following instead:
 
   ```css
-  @import 'tailwindcss';
-  @import 'fumadocs-ui/css/neutral.css';
-  @import 'fumadocs-ui/css/preset.css';
+  @import "tailwindcss";
+  @import "fumadocs-ui/css/neutral.css";
+  @import "fumadocs-ui/css/preset.css";
   /* do this */
-  @import 'fumadocs-openapi/css/preset.css';
+  @import "fumadocs-openapi/css/preset.css";
   ```
 
 - Updated dependencies [3a5595a]
@@ -310,10 +2092,10 @@
   in your `mdx-components.tsx` (or where you pass MDX components):
 
   ```tsx
-  import defaultComponents from 'fumadocs-ui/mdx';
-  import { APIPage } from 'fumadocs-openapi/ui';
-  import { openapi } from '@/lib/source';
-  import type { MDXComponents } from 'mdx/types';
+  import defaultComponents from "fumadocs-ui/mdx";
+  import { APIPage } from "fumadocs-openapi/ui";
+  import { openapi } from "@/lib/source";
+  import type { MDXComponents } from "mdx/types";
 
   export function getMDXComponents(components?: MDXComponents): MDXComponents {
     return {
@@ -546,7 +2328,7 @@
 
 ### Patch Changes
 
-- 5730116: Improve experience to customise API Playground
+- 5730116: Improve experience to customize API Playground
 - Updated dependencies [886da49]
 - Updated dependencies [04e6c6e]
   - fumadocs-ui@15.0.11
@@ -665,8 +2447,8 @@
   From:
 
   ```tsx
-  import { createOpenAPI } from 'fumadocs-openapi/server';
-  import { APIPlayground } from 'fumadocs-openapi/scalar';
+  import { createOpenAPI } from "fumadocs-openapi/server";
+  import { APIPlayground } from "fumadocs-openapi/scalar";
 
   export const openapi = createOpenAPI({
     useScalar: true,
@@ -676,8 +2458,8 @@
   To:
 
   ```tsx
-  import { createOpenAPI } from 'fumadocs-openapi/server';
-  import { APIPlayground } from 'fumadocs-openapi/scalar';
+  import { createOpenAPI } from "fumadocs-openapi/server";
+  import { APIPlayground } from "fumadocs-openapi/scalar";
 
   export const openapi = createOpenAPI({
     renderer: {
@@ -1389,7 +3171,7 @@
   ---
 
   <APIPage
-    operations={[{ path: '/v1/apis.deleteApi', method: 'post' }]}
+    operations={[{ path: "/v1/apis.deleteApi", method: "post" }]}
     hasHead={false}
   />
   ```
@@ -1507,7 +3289,7 @@
 
 ### Minor Changes
 
-- abf84bb: Support to customise/disable TypeScript Response generation
+- abf84bb: Support to customize/disable TypeScript Response generation
 - 40728a1: Support custom fields (auth, query, header, path and body)
 
 ### Patch Changes
@@ -1595,13 +3377,13 @@
   Add the package to `content` under your Tailwind CSS configuration.
 
   ```js
-  import { createPreset, presets } from 'fumadocs-ui/tailwind-plugin';
+  import { createPreset, presets } from "fumadocs-ui/tailwind-plugin";
 
   /** @type {import('tailwindcss').Config} */
   export default {
     content: [
-      './node_modules/fumadocs-ui/dist/**/*.js',
-      './node_modules/fumadocs-openapi/dist/**/*.js',
+      "./node_modules/fumadocs-ui/dist/**/*.js",
+      "./node_modules/fumadocs-openapi/dist/**/*.js",
     ],
     presets: [createPreset()],
   };
@@ -1670,16 +3452,15 @@
 
   **migrate:**
 
-  Removed the `render` option from `generate`, `generateFiles` and `generateTags`, use `frontmatter` to customise frontmatter, `imports` to customise imports.
+  Removed the `render` option from `generate`, `generateFiles` and `generateTags`, use `frontmatter` to customize frontmatter, `imports` to customize imports.
 
 - 284a571: **Support Custom MDX Renderer.**
 
-  **why:** Allow people to customise how the MDX file is generated.
+  **why:** Allow people to customize how the MDX file is generated.
 
   **migrate:**
 
   Changed the output of MDX files, the new structure requires components:
-
   - Root
   - API
   - APIInfo
@@ -1800,11 +3581,11 @@
   migrate: Create a script named `scripts/generate-docs.mjs`:
 
   ```js
-  import { generateFiles } from 'fumadocs-openapi';
+  import { generateFiles } from "fumadocs-openapi";
 
   void generateFiles({
-    input: ['./petstore.yaml'],
-    output: './content/docs',
+    input: ["./petstore.yaml"],
+    output: "./content/docs",
   });
   ```
 
@@ -1851,18 +3632,18 @@
    * @type {import("@fuma-docs/openapi").Config}
    */
   module.exports = {
-    input: ['./petstore.yaml'],
-    output: './content/docs',
-    per: 'tag',
+    input: ["./petstore.yaml"],
+    output: "./content/docs",
+    per: "tag",
     render: (title, description) => {
       return {
         frontmatter: [
-          '---',
+          "---",
           `title: ${title}`,
           `description: ${description}`,
-          'toc: false',
-          '---',
-        ].join('\n'),
+          "toc: false",
+          "---",
+        ].join("\n"),
       };
     },
   };

@@ -18,11 +18,10 @@ Unserializable data such as functions can't be passed to page tree.
 
 ## Conventions
 
-The type definitions of page tree, for people who want to hardcode/generate it.
-You can also import the type from Fumadocs.
+You can import the type definitions of page tree, useful if you want to hardcode or generate it.
 
 ```ts
-import type { PageTree } from 'fumadocs-core/server';
+import type * as PageTree from 'fumadocs-core/page-tree';
 
 const tree: PageTree.Root = {
   // props
@@ -35,9 +34,11 @@ Certain nodes contain a `$ref` property, they are internal and not used when har
 
 The initial root of page trees.
 
-<AutoTypeTable path="./content/docs/headless/props.ts" name="PageTreeRoot" />
+<auto-type-table path="props.ts" name="PageTreeRoot" />
 
 ### Page
+
+A node representing link.
 
 ```json
 {
@@ -49,9 +50,11 @@ The initial root of page trees.
 
 > External urls are also supported
 
-<AutoTypeTable path="./content/docs/headless/props.ts" name="PageTreeItem" />
+<auto-type-table path="props.ts" name="PageTreeItem" />
 
 ### Folder
+
+A node containing multiple children nodes.
 
 ```json
 {
@@ -67,7 +70,7 @@ The initial root of page trees.
 }
 ```
 
-<AutoTypeTable path="./content/docs/headless/props.ts" name="PageTreeFolder" />
+<auto-type-table path="props.ts" name="PageTreeFolder" />
 
 ### Separator
 
@@ -80,8 +83,8 @@ A label between items.
 }
 ```
 
-<AutoTypeTable
-  path="./content/docs/headless/props.ts"
+<auto-type-table
+  path="props.ts"
   name="PageTreeSeparator"
 />
 

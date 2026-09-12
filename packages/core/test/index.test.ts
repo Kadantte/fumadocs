@@ -1,10 +1,11 @@
-import { parseFilePath, parseFolderPath } from '@/source/path';
+import { joinPath, splitPath } from '@/source/path';
 import { describe, expect, test } from 'vitest';
-import type { Root } from '@/server/page-tree';
-import { findNeighbour } from '@/utils/page-tree';
-import { PageTree } from '../dist/server';
+import type { Folder, Item, Root } from '@/page-tree/definitions';
+import { findNeighbour, findProjection, findSiblings } from '@/page-tree/utils';
 import { getBreadcrumbItems } from '@/breadcrumb';
-import { joinPath, splitPath } from '@/utils/path';
+import { DefaultFormatter } from '@/i18n/middleware';
+import { NextURL } from 'next/dist/server/web/next-url';
+import { updateHref } from '@/dynamic-link';
 
 test('Find Neighbours', () => {
   const tree: Root = {
@@ -36,85 +37,38 @@ test('Find Neighbours', () => {
   });
 });
 
+test('Find Projection', () => {
+  const version = (name: string, children: Folder['children']): Folder => ({
+    type: 'folder',
+    name,
+    root: 'version',
+    $ref: { folder: name },
+    children,
+  });
+  const sdk = (version: string, url: string): Folder => ({
+    type: 'folder',
+    name: 'Python',
+    root: 'sdk',
+    $ref: { folder: `${version}/python` },
+    children: [{ type: 'page', name: 'Guide', url, $ref: `${version}/python/guide.mdx` }],
+  });
+
+  const v1 = version('v1', [sdk('v1', '/docs/v1/python/guide')]);
+  const page = (v1.children[0] as Folder).children[0] as Item;
+  // custom slugs: matched by file path, through nested root folders
+  const v2 = version('v2', [sdk('v2', '/docs/v2-latest/py/guide')]);
+  expect(findProjection(v1, v2, page)?.url).toBe('/docs/v2-latest/py/guide');
+
+  // no page at the same relative path
+  expect(findProjection(v1, version('v3', []), page)).toBeUndefined();
+  // page outside of `from`
+  const shared: Item = { type: 'page', name: 'Shared', url: '/docs/v1/shared', $ref: 'shared.mdx' };
+  expect(findProjection(v1, v2, shared)).toBeUndefined();
+  // without file paths
+  expect(findProjection({ ...v1, $ref: undefined }, v2, page)).toBeUndefined();
+});
+
 describe('Path utilities', () => {
-  test('parse file path', () => {
-    expect(parseFilePath('test.mdx')).toMatchInlineSnapshot(`
-      {
-        "dirname": "",
-        "ext": ".mdx",
-        "flattenedPath": "test",
-        "name": "test",
-        "path": "test.mdx",
-      }
-    `);
-
-    expect(parseFilePath('nested/test.mdx')).toMatchInlineSnapshot(`
-      {
-        "dirname": "nested",
-        "ext": ".mdx",
-        "flattenedPath": "nested/test",
-        "name": "test",
-        "path": "nested/test.mdx",
-      }
-    `);
-
-    expect(parseFilePath('nested/test.cn.mdx')).toMatchInlineSnapshot(`
-      {
-        "dirname": "nested",
-        "ext": ".mdx",
-        "flattenedPath": "nested/test.cn",
-        "name": "test.cn",
-        "path": "nested/test.cn.mdx",
-      }
-    `);
-
-    expect(parseFilePath('nested/test.01.mdx')).toMatchInlineSnapshot(`
-      {
-        "dirname": "nested",
-        "ext": ".mdx",
-        "flattenedPath": "nested/test.01",
-        "name": "test.01",
-        "path": "nested/test.01.mdx",
-      }
-    `);
-
-    expect(parseFilePath('nested\\test.cn.mdx')).toMatchInlineSnapshot(`
-      {
-        "dirname": "nested",
-        "ext": ".mdx",
-        "flattenedPath": "nested/test.cn",
-        "name": "test.cn",
-        "path": "nested/test.cn.mdx",
-      }
-    `);
-  });
-
-  test('parse folder path', () => {
-    expect(parseFolderPath('')).toMatchInlineSnapshot(`
-      {
-        "dirname": "",
-        "name": "",
-        "path": "",
-      }
-    `);
-
-    expect(parseFolderPath('nested/nested')).toMatchInlineSnapshot(`
-      {
-        "dirname": "nested",
-        "name": "nested",
-        "path": "nested/nested",
-      }
-    `);
-
-    expect(parseFolderPath('nested\\nested')).toMatchInlineSnapshot(`
-      {
-        "dirname": "nested",
-        "name": "nested",
-        "path": "nested/nested",
-      }
-    `);
-  });
-
   test('resolve paths', () => {
     expect(joinPath('a', 'b')).toBe('a/b');
     expect(joinPath('/a', '')).toBe('a');
@@ -132,9 +86,14 @@ describe('Path utilities', () => {
 });
 
 test('Breadcrumbs', () => {
-  const tree: PageTree.Root = {
+  const tree: Root = {
     name: 'Hello World',
     children: [
+      {
+        type: 'page',
+        name: 'Introduction',
+        url: '/',
+      },
       {
         type: 'page',
         name: 'Hello World',
@@ -163,7 +122,178 @@ test('Breadcrumbs', () => {
     ],
   };
 
-  expect(getBreadcrumbItems('/docs/folder', tree)).toStrictEqual([
+  expect(getBreadcrumbItems('/docs/folder', tree, { includePage: true })).toStrictEqual([
     { name: 'World', url: '/docs/folder' },
   ]);
+
+  expect(getBreadcrumbItems('/invalid', tree)).toMatchInlineSnapshot(`[]`);
+
+  const treeWithRoot: Root = {
+    name: 'Docs',
+    children: [
+      {
+        type: 'folder',
+        name: 'Docs',
+        root: true,
+        index: { type: 'page', name: 'Introduction', url: '/docs' },
+        children: [
+          {
+            type: 'folder',
+            name: 'Guides',
+            index: { type: 'page', name: 'Guides', url: '/docs/guides' },
+            children: [
+              {
+                type: 'page',
+                name: 'Getting Started',
+                url: '/docs/guides/getting-started',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  expect(
+    getBreadcrumbItems('/docs/guides/getting-started', treeWithRoot, {
+      includeRoot: true,
+      includePage: true,
+    }),
+  ).toStrictEqual([
+    { name: 'Docs', url: '/docs' },
+    { name: 'Guides', url: '/docs/guides' },
+    { name: 'Getting Started', url: '/docs/guides/getting-started' },
+  ]);
+
+  expect(
+    getBreadcrumbItems('/docs/guides/getting-started', treeWithRoot, {
+      includeRoot: false,
+      includePage: true,
+    }),
+  ).toStrictEqual([
+    { name: 'Guides', url: '/docs/guides' },
+    { name: 'Getting Started', url: '/docs/guides/getting-started' },
+  ]);
+
+  expect(
+    getBreadcrumbItems('/docs/guides/getting-started', treeWithRoot, {
+      includeRoot: { url: '/custom-root' },
+      includePage: true,
+    }),
+  ).toStrictEqual([
+    { name: 'Docs', url: '/custom-root' },
+    { name: 'Guides', url: '/docs/guides' },
+    { name: 'Getting Started', url: '/docs/guides/getting-started' },
+  ]);
+});
+
+test('I18n: Format URL', () => {
+  expect(DefaultFormatter.get(new NextURL('https://fumadocs.dev/en'))).toBe('en');
+  expect(DefaultFormatter.get(new NextURL('https://fumadocs.dev/en/test'))).toBe('en');
+  expect(DefaultFormatter.get(new NextURL('https://fumadocs.dev'))).toBeUndefined();
+  expect(
+    DefaultFormatter.get(
+      new NextURL('https://fumadocs.dev/docs', {
+        nextConfig: {
+          basePath: '/docs',
+        },
+      }),
+    ),
+  ).toBeUndefined();
+  expect(
+    DefaultFormatter.get(
+      new NextURL('https://fumadocs.dev/docs/en/test', {
+        nextConfig: {
+          basePath: '/docs',
+        },
+      }),
+    ),
+  ).toBe('en');
+
+  expect(DefaultFormatter.add(new NextURL('https://fumadocs.dev'), 'cn').href).toBe(
+    'https://fumadocs.dev/cn/',
+  );
+  expect(
+    DefaultFormatter.add(
+      new NextURL('https://fumadocs.dev/docs', {
+        nextConfig: {
+          basePath: '/docs',
+        },
+      }),
+      'cn',
+    ).href,
+  ).toBe('https://fumadocs.dev/docs/cn/');
+
+  expect(DefaultFormatter.remove(new NextURL('https://fumadocs.dev/en')).href).toBe(
+    'https://fumadocs.dev/',
+  );
+  expect(DefaultFormatter.remove(new NextURL('https://fumadocs.dev/en/test/hello')).href).toBe(
+    'https://fumadocs.dev/test/hello',
+  );
+  expect(
+    DefaultFormatter.remove(
+      new NextURL('https://fumadocs.dev/docs/en', {
+        nextConfig: {
+          basePath: '/docs',
+        },
+      }),
+    ).href,
+  ).toBe('https://fumadocs.dev/docs/');
+});
+
+const tree: Root = {
+  name: 'docs',
+  children: [
+    {
+      type: 'folder',
+      name: 'test',
+      index: {
+        type: 'page',
+        name: 'Page 1',
+        url: '/page-1',
+      },
+      children: [
+        {
+          type: 'page',
+          name: 'Page 2',
+          url: '/page-2',
+        },
+        {
+          type: 'page',
+          name: 'Page 3',
+          url: '/page-3',
+        },
+      ],
+    },
+    {
+      type: 'page',
+      name: 'Page 4',
+      url: '/page-4',
+    },
+  ],
+};
+
+test('findSiblings', () => {
+  expect(findSiblings(tree, '/page-1')).toMatchInlineSnapshot(`
+    [
+      {
+        "name": "Page 2",
+        "type": "page",
+        "url": "/page-2",
+      },
+      {
+        "name": "Page 3",
+        "type": "page",
+        "url": "/page-3",
+      },
+    ]
+  `);
+});
+
+test('Dynamic Link: update href', () => {
+  expect(updateHref('/[lang]/test', {})).toBe('/test');
+  expect(updateHref('/[lang]/test', { lang: 'en' })).toBe('/en/test');
+  expect(updateHref('/[lang]/test', { lang: ['en', 'cn'] })).toBe('/en/cn/test');
+
+  // relative -> relative
+  expect(updateHref('[lang]/test', {})).toBe('test');
 });

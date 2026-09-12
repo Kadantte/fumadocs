@@ -1,5 +1,8 @@
 import type { Algoliasearch } from 'algoliasearch';
 import type { StructuredData } from '@/mdx-plugins/remark-structure';
+import type { LoaderConfig, LoaderOutput } from '@/source/loader';
+import type { Awaitable } from '@/types';
+import { buildDocuments } from './server/build-index';
 
 export interface DocumentRecord {
   /**
@@ -9,6 +12,7 @@ export interface DocumentRecord {
 
   title: string;
   description?: string;
+  breadcrumbs?: string[];
 
   /**
    * URL to the page
@@ -27,14 +31,27 @@ export interface DocumentRecord {
   extra_data?: object;
 }
 
-export interface SyncOptions {
-  /**
-   * Index Name for documents.
-   *
-   * @deprecated Use `indexName` instead
-   */
-  document?: string;
+/**
+ * Build the search indexes of every page in a source.
+ */
+export function toDocuments<C extends LoaderConfig>(
+  source: LoaderOutput<C> | (() => Awaitable<LoaderOutput<C>>),
+  options: {
+    /** Tag to filter results by. */
+    tag?: (page: C['page']) => string;
+  } = {},
+): Promise<DocumentRecord[]> {
+  return buildDocuments(source, (index, page) => ({
+    _id: index.id,
+    title: index.title,
+    description: index.description,
+    url: index.url,
+    structured: index.structuredData,
+    tag: options.tag?.(page),
+  }));
+}
 
+export interface SyncOptions {
   /**
    * Index Name for documents.
    */
@@ -52,30 +69,18 @@ export interface SyncOptions {
  * @param client - Algolia Admin Client
  * @param options - Index Options
  */
-export async function sync(
-  client: Algoliasearch,
-  options: SyncOptions,
-): Promise<void> {
-  const { document = 'document', indexName = document, documents } = options;
+export async function sync(client: Algoliasearch, options: SyncOptions): Promise<void> {
+  const { indexName = 'document', documents } = options;
   await setIndexSettings(client, indexName);
   await updateDocuments(client, indexName, documents);
 }
 
-export async function setIndexSettings(
-  client: Algoliasearch,
-  indexName: string,
-): Promise<void> {
+export async function setIndexSettings(client: Algoliasearch, indexName: string): Promise<void> {
   await client.setSettings({
     indexName,
     indexSettings: {
       attributeForDistinct: 'page_id',
-      attributesToRetrieve: [
-        'title',
-        'section',
-        'content',
-        'url',
-        'section_id',
-      ],
+      attributesToRetrieve: ['title', 'section', 'content', 'url', 'section_id', 'breadcrumbs'],
       searchableAttributes: ['title', 'section', 'content'],
       attributesToSnippet: [],
       attributesForFaceting: ['tag'],
@@ -95,6 +100,7 @@ function toIndex(page: DocumentRecord): BaseIndex[] {
   ): BaseIndex {
     return {
       objectID: `${page._id}-${(id++).toString()}`,
+      breadcrumbs: page.breadcrumbs,
       title: page.title,
       url: page.url,
       page_id: page._id,
@@ -106,8 +112,7 @@ function toIndex(page: DocumentRecord): BaseIndex[] {
     };
   }
 
-  if (page.description)
-    indexes.push(createIndex(undefined, undefined, page.description));
+  if (page.description) indexes.push(createIndex(undefined, undefined, page.description));
   const { headings, contents } = page.structured;
 
   for (const p of contents) {
@@ -160,6 +165,8 @@ export interface BaseIndex {
    * Heading (anchor) id
    */
   section_id?: string;
+
+  breadcrumbs?: string[];
 
   content: string;
 }

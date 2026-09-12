@@ -1,4 +1,153 @@
+## fumadocs-docgen@3.1.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
 # fumadocs-docgen
+
+## 3.0.10
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - fumadocs-core@16.7.14
+
+## 3.0.9
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - fumadocs-core@16.7.13
+
+## 3.0.8
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - fumadocs-core@16.6.8
+
+## 3.0.7
+
+### Patch Changes
+
+- 1a614de: enforce MDX stringifier by default
+- Updated dependencies [1a614de]
+- Updated dependencies [6ab6692]
+  - fumadocs-core@16.6.5
+
+## 3.0.6
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-core@16.5.2
+
+## 3.0.5
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+
+## 3.0.4
+
+### Patch Changes
+
+- ca09b6a: Core: Support accessing MDX plugins separately at `fumadocs-core/mdx-plugins/*`
+- Updated dependencies [bc97236]
+- Updated dependencies [ca09b6a]
+- Updated dependencies [117ad86]
+  - fumadocs-core@16.0.8
+
+## 3.0.3
+
+### Patch Changes
+
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [230c6bf]
+- Updated dependencies [851897c]
+- Updated dependencies [4049ccc]
+- Updated dependencies [429c41a]
+- Updated dependencies [5210f18]
+- Updated dependencies [cbc93e9]
+- Updated dependencies [42f09c3]
+- Updated dependencies [55afd8a]
+  - fumadocs-core@16.0.0
+
+## 3.0.2
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+  - fumadocs-core@15.8.3
+
+## 3.0.1
+
+### Patch Changes
+
+- 655bb46: Support custom `defaultValue` for `remark-ts2js`
+- Updated dependencies [655bb46]
+- Updated dependencies [d1ae3e8]
+- Updated dependencies [6548a59]
+- Updated dependencies [51268ec]
+- Updated dependencies [51268ec]
+  - fumadocs-core@15.8.0
+
+## 3.0.0
+
+### Major Changes
+
+- b4474cf: `remarkTypeScriptToJavaScript` now output new `<CodeBlockTabs />` syntax, drop `Tab` and `Tabs` options
+- b4474cf: Make `fumadocs-core` a required peer dep (and must be `^15.7.2`)
+
+### Minor Changes
+
+- b4474cf: [`remarkTypeScriptToJavaScript`] Support overriding output codeblock's meta string
+
+### Patch Changes
+
+- Updated dependencies [88b5a4e]
+- Updated dependencies [039b24b]
+- Updated dependencies [08eee2b]
+  - fumadocs-core@15.7.2
+
+## 2.1.0
+
+### Minor Changes
+
+- d0f8a15: Enable `remarkNpm` by default, replace `remarkInstall` with it.
+- f8d1709: **Redesigned Codeblock Tabs**
+
+  Instead of relying on `Tabs` component, it supports a dedicated tabs component for codeblocks:
+
+  ```tsx
+  <CodeBlockTabs>
+    <CodeBlockTabsList>
+      <CodeBlockTabsTrigger value="value">Name</CodeBlockTabsTrigger>
+    </CodeBlockTabsList>
+    <CodeBlockTab value="value" asChild>
+      <CodeBlock>...</CodeBlock>
+    </CodeBlockTab>
+  </CodeBlockTabs>
+  ```
+
+  The old usage is not deprecated, you can still use them while Fumadocs' remark plugins will generate codeblock tabs using the new way.
+
+## 2.0.1
+
+### Patch Changes
+
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
 
 ## 2.0.0
 
@@ -34,7 +183,7 @@
   Import it like:
 
   ```ts
-  import { remarkTypeScriptToJavaScript } from 'fumadocs-docgen/remark-ts2js';
+  import { remarkTypeScriptToJavaScript } from "fumadocs-docgen/remark-ts2js";
   ```
 
   instead of importing from `fumadocs-docgen`.

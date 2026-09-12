@@ -1,89 +1,83 @@
-import { slash, splitPath } from '@/utils/path';
+export function basename(path: string, ext?: string): string {
+  const idx = path.lastIndexOf('/');
 
-export interface FileInfo {
-  /**
-   * File path without extension
-   *
-   * @deprecated obtain it with `join(dirname, name)`
-   */
-  flattenedPath: string;
-
-  /**
-   * path of file (unparsed)
-   */
-  path: string;
-
-  /**
-   * File name without extension
-   */
-  name: string;
-
-  /**
-   * file extension from the last `.`, like `.md`
-   *
-   * empty string if no file extension
-   */
-  ext: string;
-
-  dirname: string;
+  return path.substring(idx === -1 ? 0 : idx + 1, ext ? path.length - ext.length : path.length);
 }
 
-export interface FolderInfo {
-  /**
-   * Original path of folder
-   */
-  path: string;
-
-  /**
-   * folder name
-   */
-  name: string;
-
-  dirname: string;
-}
-
-export function parseFilePath(path: string): FileInfo {
-  const segments = splitPath(slash(path));
-
-  const dirname = segments.slice(0, -1).join('/');
-  let name = segments.at(-1) ?? '';
-  let ext = '';
-
-  const dotIdx = name.lastIndexOf('.');
-  if (dotIdx !== -1) {
-    ext = name.substring(dotIdx);
-    name = name.substring(0, dotIdx);
+export function extname(path: string): string {
+  for (let i = path.length - 1; i >= 0; i--) {
+    const c = path[i];
+    if (c === '.') return path.substring(i);
+    if (c === '/') return '';
   }
 
-  return {
-    dirname,
-    name,
-    path: segments.join('/'),
-    ext,
-    get flattenedPath() {
-      return [dirname, name].filter((p) => p.length > 0).join('/');
-    },
-  };
+  return '';
 }
 
-export function parseFolderPath(path: string): FolderInfo {
-  const segments = splitPath(slash(path));
-  const base = segments.at(-1) ?? '';
+export function dirname(path: string): string {
+  const idx = path.lastIndexOf('/');
+  if (idx === -1) return '';
 
-  return {
-    dirname: segments.slice(0, -1).join('/'),
-    name: base,
-    path: segments.join('/'),
-  };
+  return path.substring(0, idx);
+}
+/**
+ * Split path into segments, trailing/leading slashes are removed
+ */
+export function splitPath(path: string): string[] {
+  return path.split('/').filter((p) => p.length > 0);
 }
 
 /**
+ * Resolve paths, slashes within the path will be ignored
+ * @param paths - Paths to join
+ * @example
+ * ```
+ * ['a','b'] // 'a/b'
+ * ['/a'] // 'a'
+ * ['a', '/b'] // 'a/b'
+ * ['a', '../b/c'] // 'b/c'
+ * ```
+ */
+export function joinPath(...paths: string[]): string {
+  const out = [];
+
+  for (const path of paths) {
+    for (const seg of path.split('/')) {
+      switch (seg) {
+        case '..':
+          out.pop();
+          break;
+        case '':
+        case '.':
+          break;
+        default:
+          out.push(seg);
+      }
+    }
+  }
+
+  return out.join('/');
+}
+
+export function slash(path: string): string {
+  const isExtendedLengthPath = path.startsWith('\\\\?\\');
+
+  if (isExtendedLengthPath) {
+    return path;
+  }
+
+  return path.replaceAll('\\', '/');
+}
+
+/**
+ * Convert (relative) file path to virtual file path.
+ *
  * @param path - Relative path
  * @returns Normalized path, with no trailing/leading slashes
  * @throws Throws error if path starts with `./` or `../`
  */
-export function normalizePath(path: string): string {
-  const segments = splitPath(slash(path));
+export function normalize(path: string): string {
+  const segments = path.split(/\/|\\/).filter((v) => v.length > 0);
   if (segments[0] === '.' || segments[0] === '..')
     throw new Error("It must not start with './' or '../'");
   return segments.join('/');

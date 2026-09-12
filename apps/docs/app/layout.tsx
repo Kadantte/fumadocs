@@ -4,14 +4,17 @@ import { baseUrl, createMetadata } from '@/lib/metadata';
 import { Body } from '@/app/layout.client';
 import { Provider } from './provider';
 import type { ReactNode } from 'react';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist, JetBrains_Mono } from 'next/font/google';
+import { TreeContextProvider } from 'fumadocs-ui/contexts/tree';
+import { source } from '@/lib/source';
+import { NextProvider } from 'fumadocs-core/framework/next';
 
 export const metadata = createMetadata({
   title: {
     template: '%s | Fumadocs',
     default: 'Fumadocs',
   },
-  description: 'The Next.js framework for building documentation sites',
+  description: 'The React.js documentation framework.',
   metadataBase: baseUrl,
 });
 
@@ -20,7 +23,7 @@ const geist = Geist({
   subsets: ['latin'],
 });
 
-const mono = Geist_Mono({
+const mono = JetBrains_Mono({
   variable: '--font-mono',
   subsets: ['latin'],
 });
@@ -34,13 +37,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geist.variable} ${mono.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="en" className={`${geist.variable} ${mono.variable}`} suppressHydrationWarning>
       <Body>
-        <Provider>{children}</Provider>
+        <NextProvider>
+          <TreeContextProvider tree={source.getPageTree()}>
+            <Provider>{children}</Provider>
+          </TreeContextProvider>
+        </NextProvider>
       </Body>
     </html>
   );

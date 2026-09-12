@@ -1,18 +1,25 @@
-import type { MethodInformation, RenderContext } from '@/types';
-import dynamic from 'next/dynamic';
+'use client';
+import type { CreateOpenAPIPageOptions } from '@/ui';
+import { lazy } from 'react';
 
-const Client = dynamic(() => import('./client'));
+const Client = lazy(() => import('./client'));
 
-export function APIPlayground({
-  path,
-  method,
-  ctx,
-}: {
-  path: string;
-  method: MethodInformation;
-  ctx: RenderContext;
-}) {
-  return (
-    <Client method={method.method} path={path} spec={ctx.schema.downloaded} />
-  );
+/**
+ * Enable Scalar for API playgrounds by wrapping your options inside.
+ *
+ * Requires `@scalar/api-client-react` to be installed, it imports the styles automatically.
+ */
+export function withScalar(options: CreateOpenAPIPageOptions = {}): CreateOpenAPIPageOptions {
+  return {
+    ...options,
+    playground: {
+      ...options.playground,
+      provider(props) {
+        return props.children;
+      },
+      render({ method, path, ctx }) {
+        return <Client method={method} path={path} spec={ctx.schema.bundled} />;
+      },
+    },
+  };
 }

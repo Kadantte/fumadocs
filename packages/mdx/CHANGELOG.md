@@ -1,4 +1,861 @@
+## fumadocs-mdx@15.4.0
+
+### Remark LLMs: export a component with `output: "function"`
+
+With `output: "function"`, `_markdown` becomes a component instead of a string: Markdown content is still stringified at compile time, while JSX elements stay as JSX, receiving their original props.
+
+```ts
+// fumadocs-mdx collection config
+postprocess: {
+  includeProcessedMarkdown: { output: 'function' },
+},
+```
+
+Render it with `renderToMarkdown` from `fumadocs-core/server`. Elements resolve from `props.components`: a component can call `asMarkdown()` to output its own Markdown form, other components (including missing ones) are serialized as JSX syntax.
+
+```tsx
+import { renderToMarkdown } from 'fumadocs-core/server';
+
+const { _markdown: Content } = await page.data.load();
+const text = await renderToMarkdown(<Content components={getMDXComponents()} />);
+```
+
+`getText('processed')` keeps working: it renders the component for you, with an optional components map:
+
+```ts
+const text = await page.data.getText('processed', { components: getMDXComponents() });
+```
+
+Supported in bundler collections with both compilers, and in `dynamic: true` collections & `@fumadocs/satteri/local-md` with the Sätteri compiler.
+
+## fumadocs-mdx@15.3.1
+
+### Scope `lastModified` git log to the content directory
+
+`git log` is scoped to the collection's content directory instead of buffering the repository's entire history in every worker.
+
+### Fix Vite dev server crash on declaration-only dependencies
+
+The injected Vite config no longer pre-bundles packages without runtime JavaScript, such as `@types/mdx`. Pre-bundling them made esbuild parse `.d.ts` files and fail on imports that only exist in type space, crashing the dev server.
+
+### Encode `import.meta.glob` query values
+
+The Vite codegen passed the query to `import.meta.glob` as an object, letting the bundler serialize it. Rolldown inlines the values as-is, so a macro id such as `src/lib/source.ts#docs` left an unescaped `/` in the content file's module id and relative imports from that module (e.g. images from `![Banner](/logo.png)`) failed to resolve, since the importer's directory is derived from the raw id.
+
+The query is now serialized (and percent-encoded) by Fumadocs itself, matching what the Node.js codegen already did.
+
+## fumadocs-mdx@15.3.0
+
+### Sätteri 0.10
+
+`@fumadocs/satteri` now requires `satteri` ^0.10.3, and the plugins were rewritten on its new capabilities:
+
+- Exports (`frontmatter`, `toc`, `structuredData`, …) are emitted by an `after` document hook instead of an anchor marker appended to the source, so plugins no longer see (or need to skip) the anchor node.
+- `remark-steps`, `remark-admonition` and `remark-code-tab` still detect their targets through node visitors (so documents without the construct cost nothing), but process each parent exactly once in an `after` hook, replacing the per-visit dedup workarounds.
+- `remark-llms` stringifies the document root from a `before` hook instead of subscribing to 19 node types to find it.
+- Markdown documents compile through Sätteri's own `markdownToJs`; the hand-assembled pipeline is gone. Raw HTML in `.md` files is still dropped, matching the previous behavior.
+- `rehype-katex` parses KaTeX output with Sätteri's `htmlToHast`, dropping the `hast-util-from-html` dependency.
+- No plugin reads `node.position`, so Sätteri now skips source-position tracking entirely (~15% faster parse).
+
+**Breaking:** `ExtraPluginHooks.beforeToJs` was removed. Seed `ctx.data` from a Sätteri `before` hook on the plugin definition instead — it also receives the document root:
+
+```ts
+import { defineMdastPlugin } from 'satteri';
+
+defineMdastPlugin({
+  name: 'my-plugin',
+  before(root, ctx) {
+    ctx.data.myValue ??= [];
+  },
+});
+```
+
+## fumadocs-mdx@15.2.3
+
+### Fix Base UI's `use-sync-external-store` breaking Vite dev servers
+
+The Vite config is now derived from your project's own dependencies at startup, instead of being generated ahead of time against ours.
+
+Builds keep the alias that replaces the shim with React, which is now applied only there. Pre-bundling is a dev server feature, and on builds a bundler that leaves the shim's `require('react')` in place gives it a second React instance whose hook dispatcher is null, breaking every component with a Base UI store.
+
+## fumadocs-mdx@15.2.2
+
+### Support thenable Next.js config
+
+Allow the promises to be awaited.
+
+## fumadocs-mdx@15.2.1
+
+### Support simpler `fumadocsMdx` vite plugin usage
+
+Use the `fumadocsMdx` method instead for better syntax around macro usage.
+
+### Support browser helpers for Macro API
+
+Use preload & lazy body renderer on non-rsc environment.
+
+## fumadocs-mdx@15.2.0
+
+### Support Macro API
+
+Use `fumadocs-mdx/macro` to define collections, and enable the macro-style API from bundler plugin (e.g. `createMDX`) using the `include` option.
+
+## fumadocs-mdx@15.1.1
+
+### Migrate from `js-yaml` to `yaml`
+
+## fumadocs-mdx@15.1.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
+## fumadocs-mdx@15.0.13
+
+### Require `collection` query param at regex matching
+
+Instead of passing through all JSON/YAML files, the meta loader now requires `collection` query param to be triggered.
+
 # next-docs-mdx
+
+## 15.0.12
+
+### Patch Changes
+
+- 9b9545f: Add package issue tracker metadata.
+- Updated dependencies [9b9545f]
+  - fumadocs-core@16.10.0
+
+## 15.0.11
+
+### Patch Changes
+
+- 2d65ceb: Support hot reload in `source.config.ts` with Vite plugin
+
+## 15.0.10
+
+### Patch Changes
+
+- d35d0d6: Respect `root` in Vite config
+- Updated dependencies [42f0255]
+- Updated dependencies [a807798]
+  - fumadocs-core@16.9.3
+
+## 15.0.9
+
+### Patch Changes
+
+- cd04425: Support `_fumadocs_skipViteConfig` internal flag
+
+## 15.0.8
+
+### Patch Changes
+
+- dca5b49: Fix compatibility with `?raw` query string
+- Updated dependencies [e77b9b3]
+- Updated dependencies [334c8fd]
+  - fumadocs-core@16.9.1
+
+## 15.0.7
+
+### Patch Changes
+
+- 768b676: Standardize `structuredData` in page data
+- Updated dependencies [768b676]
+  - fumadocs-core@16.8.12
+
+## 15.0.6
+
+### Patch Changes
+
+- da4a81a: Update vite configs
+
+## 15.0.5
+
+### Patch Changes
+
+- 1fb6a61: Support custom base directory for content sources
+
+## 15.0.4
+
+### Patch Changes
+
+- 819b6ec: Support Rolldown integration
+
+## 15.0.3
+
+### Patch Changes
+
+- 2569154: Pre-generate Vite config to prevent CJS compat issues
+- Updated dependencies [062beab]
+- Updated dependencies [505cfe0]
+  - fumadocs-core@16.8.10
+
+## 15.0.2
+
+### Patch Changes
+
+- 298ac97: fix compatibility issues with Vite RSC
+- b212481: remove vitefu from inline deps
+
+## 15.0.1
+
+### Patch Changes
+
+- 91cac42: remove unused deps
+- 3696a7e: Make source config optional in Vite plugin
+- Updated dependencies [2ca3eab]
+  - fumadocs-core@16.8.9
+
+## 15.0.0
+
+### Major Changes
+
+- 3de9dfe: **Require ESM for `next.config`**
+
+  Modern Node.js now supports `next.config.mts` format, compatibility layer is no longer needed.
+
+- 3de9dfe: Raise minimum `fumadocs-core` version to `16.7.0`
+
+### Patch Changes
+
+- 5745fcf: Support better Node.js loader registry
+  - fumadocs-core@16.8.8
+
+## 14.3.2
+
+### Patch Changes
+
+- 79d3209: Deprecate forwarded schemas at `fumadocs-mdx/config`, recommend `fumadocs-core/source/schema` instead.
+- Updated dependencies [79d3209]
+  - fumadocs-core@16.8.5
+
+## 14.3.1
+
+### Patch Changes
+
+- a744f9f: Support frontmatter parsing at core-level
+
+## 14.3.0
+
+### Minor Changes
+
+- fa9f678: **Make Next.js config ESM only**
+
+  Newer Next.js supported `.mts` extension for Next.js config files, see [Next.js docs](https://nextjs.org/docs/app/api-reference/config/typescript#using-nodejs-native-typescript-resolver-for-nextconfigts) for more info.
+
+## 14.2.14
+
+### Patch Changes
+
+- eb62304: Make `mdx-remote` optional for dynamic mode
+- Updated dependencies [e1567e2]
+- Updated dependencies [9a200c8]
+- Updated dependencies [c731a92]
+- Updated dependencies [a4189ce]
+  - fumadocs-core@16.7.15
+
+## 14.2.13
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - @fumadocs/mdx-remote@1.4.8
+  - fumadocs-core@16.7.14
+
+## 14.2.12
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - @fumadocs/mdx-remote@1.4.7
+  - fumadocs-core@16.7.13
+
+## 14.2.11
+
+### Patch Changes
+
+- 3144149: Fix dynamic index generation so generated `dynamic.ts` imports `node:path` and passes lazy entries to `create.doc()` / `create.docs()` as arrays.
+- Updated dependencies [f45d703]
+- Updated dependencies [45aa454]
+  - fumadocs-core@16.7.0
+
+## 14.2.10
+
+### Patch Changes
+
+- c2678c0: Improve `llms.txt` generation via `remark-llms` plugin
+- Updated dependencies [c2678c0]
+- Updated dependencies [417f07a]
+- Updated dependencies [bb07706]
+- Updated dependencies [f065406]
+  - fumadocs-core@16.6.17
+
+## 14.2.9
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+- Updated dependencies [5453502]
+  - @fumadocs/mdx-remote@1.4.6
+  - fumadocs-core@16.6.8
+
+## 14.2.8
+
+### Patch Changes
+
+- 1a614de: enforce MDX stringifier by default
+- Updated dependencies [1a614de]
+- Updated dependencies [6ab6692]
+  - fumadocs-core@16.6.5
+
+## 14.2.7
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - @fumadocs/mdx-remote@1.4.5
+  - fumadocs-core@16.5.2
+
+## 14.2.6
+
+### Patch Changes
+
+- 339dedf: Add heading IDs into processed markdown by default
+
+## 14.2.5
+
+### Patch Changes
+
+- 0765817: improve `useContent()` for optional props on browser loader
+- Updated dependencies [5dec9d0]
+  - fumadocs-core@16.4.7
+
+## 14.2.4
+
+### Patch Changes
+
+- 689d31e: Improve error message
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+  - @fumadocs/mdx-remote@1.4.4
+
+## 14.2.3
+
+### Patch Changes
+
+- 3a8b9b0: support Vite 8 `moduleType` option
+  - fumadocs-core@16.4.1
+
+## 14.2.2
+
+### Patch Changes
+
+- 2de6151: add `@types/react` to peer dep
+  - fumadocs-core@16.3.2
+
+## 14.2.1
+
+### Patch Changes
+
+- 3a5b077: hotfix Vite bundling
+
+## 14.2.0
+
+### Minor Changes
+
+- 8ce2c70: Add VS Code-style #region / #endregion support to <include /> for code files
+
+## 14.1.1
+
+### Patch Changes
+
+- adaf9ae: hotfix Windows path escape
+
+## 14.1.0
+
+### Minor Changes
+
+- fc0e3db: Support Workspaces API [Experimental]
+
+### Patch Changes
+
+- Updated dependencies [ef8eb6c]
+- Updated dependencies [e0c4c3a]
+- Updated dependencies [4e2bca7]
+  - fumadocs-core@16.2.3
+
+## 14.0.4
+
+### Patch Changes
+
+- f59339b: Fix `last-modified` plugin date checking
+  - fumadocs-core@16.2.0
+
+## 14.0.3
+
+### Patch Changes
+
+- f362ea1: Fix Webpack warnings (they require absolute paths for dependencies)
+- Updated dependencies [fe380da]
+- Updated dependencies [ade44d0]
+  - fumadocs-core@16.0.15
+
+## 14.0.2
+
+### Patch Changes
+
+- 59743c0: Use `remarkStructure().exportAs` option to export `structuredData`
+- 59743c0: only provide CJS fallback for Next.js
+- Updated dependencies [c3b8474]
+  - fumadocs-core@16.0.14
+
+## 14.0.1
+
+### Patch Changes
+
+- 52dabc3: Support type-safe collection generation
+  - fumadocs-core@16.0.13
+
+## 14.0.0
+
+### Major Changes
+
+- 7b450d6: **Change `postInstall()` signature to `postInstall({ configPath, outDir, ... })`**
+
+  This allows more options for `postInstall` command.
+
+- a312d3a: **Replace `getDefaultMDXOptions()` with `applyMdxPreset()`**
+
+  This allows Fumadocs MDX to support more presets in the future, and adjust presets for dynamic mode.
+
+  ```ts
+  // source.config.ts
+  import { defineCollections, applyMdxPreset } from "fumadocs-mdx/config";
+  import { myPlugin } from "./remark-plugin";
+
+  export const blog = defineCollections({
+    type: "doc",
+    mdxOptions: applyMdxPreset({
+      remarkPlugins: [myPlugin],
+      // You can also pass a function to control the order of remark plugins.
+      remarkPlugins: (v) => [myPlugin, ...v],
+    }),
+  });
+  ```
+
+- bc93578: **Replace `lastModifiedTime` option with `lastModified` plugin.**
+
+  If you've `lastModifiedTime` option enabled before, migrate to the plugin instead.
+
+  ```ts
+  // source.config.ts
+  import { defineConfig } from "fumadocs-mdx/config";
+  import lastModified from "fumadocs-mdx/plugins/last-modified";
+
+  export default defineConfig({
+    plugins: [lastModified()],
+  });
+  ```
+
+- 2f7e4d8: **Drop support for multiple `dir` in same collection**
+
+  Consider using `files` instead for filtering files.
+
+  ```ts
+  // source.config.ts
+  import { defineDocs } from "fumadocs-mdx/config";
+
+  export const docs = defineDocs({
+    dir: "content/guides",
+    docs: {
+      files: ["./i-love-fumadocs/**/*.{md,mdx}"],
+    },
+  });
+  ```
+
+- a312d3a: **No longer generate `extractedReferences` by default**
+
+  You can enable it from `postprocess` option.
+
+  ```ts
+  // source.config.ts
+  import { defineDocs } from "fumadocs-mdx/config";
+
+  export const docs = defineDocs({
+    docs: {
+      postprocess: {
+        extractLinkReferences: true,
+      },
+    },
+  });
+  ```
+
+- b963021: **[Vite] rename `generateIndexFile` option to `index`**
+
+### Patch Changes
+
+- 97722c6: Fix meta file validation on Bun.
+- b963021: [Internal] Make `index-file` a plugin and optimize re-generations.
+- Updated dependencies [c5c00e9]
+  - fumadocs-core@16.0.12
+
+## 13.0.8
+
+### Patch Changes
+
+- 58bf979: [Bun Loader] Support dynamic require of meta files
+- Updated dependencies [ff68f69]
+- Updated dependencies [00058c8]
+  - fumadocs-core@16.0.11
+
+## 13.0.7
+
+### Patch Changes
+
+- 30b1b11: Temporary workaround for `vite:json` plugin conflicts
+- Updated dependencies [733b01e]
+  - fumadocs-core@16.0.10
+
+## 13.0.6
+
+### Patch Changes
+
+- 40176ce: Support `disableMetaFile` option in Bun plugin
+  - fumadocs-core@16.0.9
+
+## 13.0.5
+
+### Patch Changes
+
+- ad38466: add support next.config.mts for mdx
+
+## 13.0.4
+
+### Patch Changes
+
+- 27fc4ed: [Internal] improve mutability of `LoadedConfig` for plugins
+- f5bc4aa: Fix Bun missing query strings
+- 61b90c8: Always transform meta files in collection, this includes runtime loaders like Node.js and Bun.
+- d1e43f4: Support re-generating index file when using runtime: bun | node
+- Updated dependencies [f97cd1e]
+- Updated dependencies [f7e15e2]
+  - fumadocs-core@16.0.7
+
+## 13.0.3
+
+### Patch Changes
+
+- cd087d2: fix hot reload
+- 94d1ad5: Support generating extra index file for browser (workaround for Cloudflare Vite issues)
+- Updated dependencies [b95b0cf]
+  - fumadocs-core@16.0.6
+
+## 13.0.2
+
+### Patch Changes
+
+- ee4ad3d: Always format file paths into POSIX for Vite
+
+## 13.0.1
+
+### Patch Changes
+
+- 56332df: Support plugins in Webpack loader environment: now plugins can apply changes on MDX options too.
+- 91add4f: Plugin `json-schema`: support inserting `$schema` to JSON files
+- cffd4c2: Lazy update index files on Next.js
+  - fumadocs-core@16.0.3
+
+## 13.0.0
+
+### Major Changes
+
+- 8d0c164: **Move `createMDXSource` and `resolveFiles` from `fumadocs-mdx` to `fumadocs-mdx/runtime/next`**
+- 3caa5cd: **Vite: move `source.generated.ts` to `.source/index.ts`**
+
+  **Why:**
+  - with Fumadocs MDX Plugins, we want to unify the output directory across Vite & Next.js.
+  - `source.generated.ts` looks ugly compared by `.source`.
+
+  **Migrate:**
+  - run dev server/typegen to generate a `.source` folder.
+  - import it over the original `source.generated.ts`.
+  - note that both docs and `create-fumadocs-app` are updated to `.source` folder.
+
+### Minor Changes
+
+- 29ce826: Support JSON Schema plugin (`fumadocs-mdx/plugins/json-schema`)
+- 3caa5cd: **Support Plugins API**
+
+  Fumadocs MDX is mostly a bundler plugin meant to be used with tools like Vite and Turbopack.
+
+  With Fumadocs MDX Plugins, you can extend Fumadocs MDX without worrying the underlying bundler.
+  It is designed for:
+  - Generate files from config (e.g. types, index files, JSON schemas)
+  - Modify received config
+
+### Patch Changes
+
+- 81fa875: Fix `includeProcessedMarkdown` cannot stringify MDX nodes
+- 575cfb8: Include unravel plugin into `remark-include` parsing step, this ensures the parsed results are consistent with normal MDX.js processor output.
+- 1f1c787: Add `useContent` API to client loader for avoiding Lint errors
+- 9051574: Support `postprocess.includeMDAST` option
+- a5df956: Support `runtime: bun` and `runtime: node` in Vite index file generation
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+- Updated dependencies [230c6bf]
+- Updated dependencies [851897c]
+- Updated dependencies [4049ccc]
+- Updated dependencies [429c41a]
+- Updated dependencies [5210f18]
+- Updated dependencies [cbc93e9]
+- Updated dependencies [42f09c3]
+- Updated dependencies [55afd8a]
+- Updated dependencies [5210f18]
+  - fumadocs-core@16.0.0
+  - @fumadocs/mdx-remote@1.4.3
+
+## 12.0.3
+
+### Patch Changes
+
+- a55177c: Remove `Override` type utility on output collection types
+- Updated dependencies [ce2be59]
+- Updated dependencies [31b9494]
+  - fumadocs-core@15.8.4
+
+## 12.0.2
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+- Updated dependencies [a3a14e7]
+  - @fumadocs/mdx-remote@1.4.1
+  - fumadocs-core@15.8.3
+
+## 12.0.1
+
+### Patch Changes
+
+- af50bc8: Support customising index file output path in Vite
+- 5fc9ee4: Support `remark-directive` for Include API
+- 4b9871d: MDX Async mode: read file content on load
+- Updated dependencies [655bb46]
+- Updated dependencies [d1ae3e8]
+- Updated dependencies [6548a59]
+- Updated dependencies [51268ec]
+- Updated dependencies [51268ec]
+  - fumadocs-core@15.8.0
+
+## 12.0.0
+
+### Major Changes
+
+- f11f89d: **[Next.js] Rename APIS**
+
+  On page data:
+  - `_file` -> `info`.
+  - `_file.absolutePath` -> `info.fullPath`.
+
+- effe43d: **Drop support for Zod 3 schemas**
+
+  Zod 3 schemas are still allowed, but you cannot no longer extend on the Zod 4 schemas provided by Fumadocs.
+
+- 2862a10: **[Next.js] Removed `content` on page data in favour of `getText()`.**
+
+### Minor Changes
+
+- 22e0fec: **Support `getText()` & Postprocess API**
+- 2862a10: Unify doc collection entry for both Vite and Next.js integrations
+
+## 11.10.1
+
+### Patch Changes
+
+- da095ac: Refactor internal export paths
+- 854d4ef: Export `postInstall()` function from `fumadocs-mdx/vite`
+- Updated dependencies [982aed6]
+  - fumadocs-core@15.7.13
+
+## 11.10.0
+
+### Minor Changes
+
+- ea13374: Support runtime loaders: Node.js, Bun
+
+### Patch Changes
+
+- Updated dependencies [846b28a]
+- Updated dependencies [2b30315]
+  - fumadocs-core@15.7.12
+
+## 11.9.1
+
+### Patch Changes
+
+- 64d0169: hotfix node.js imports at global scope
+
+## 11.9.0
+
+### Minor Changes
+
+- d193152: Support `absolutePath` on Vite
+
+### Patch Changes
+
+- 2566eef: Support postinstall script on Vite
+- Updated dependencies [c948f59]
+  - fumadocs-core@15.7.10
+
+## 11.8.3
+
+### Patch Changes
+
+- 205d92d: Update dev server initialization for Next.js 15.5.1
+- e4c12a3: Add Vite config for Fumadocs Core & UI automatically
+- Updated dependencies [f65778d]
+- Updated dependencies [e4c12a3]
+  - fumadocs-core@15.7.8
+
+## 11.8.2
+
+### Patch Changes
+
+- 9a3c23b: support auto-generated title based on `h1` heading
+- 9cb829c: Support referencing heading in `<include>` without sections
+
+## 11.8.1
+
+### Patch Changes
+
+- 5f2ec6e: Fix `remark-mdx-exports` plugin fallback
+- Updated dependencies [6d97379]
+- Updated dependencies [e776ee5]
+  - fumadocs-core@15.7.3
+
+## 11.8.0
+
+### Minor Changes
+
+- cfe2a5c: Support Async Mode for Vite
+
+### Patch Changes
+
+- c8f49d8: Include frontmatter into `page.data.content` by default
+- Updated dependencies [514052e]
+- Updated dependencies [e254c65]
+- Updated dependencies [ec75601]
+- Updated dependencies [e785f98]
+- Updated dependencies [0531bf4]
+- Updated dependencies [50eb07f]
+- Updated dependencies [67df155]
+- Updated dependencies [b109d06]
+  - fumadocs-core@15.7.0
+
+## 11.7.5
+
+### Patch Changes
+
+- c17fa03: Support creating a separate processor when `<include />` points to different Markdown format
+- f43f714: Automatic fallback to Zod v3 when app has explicit v3 dependency
+- Updated dependencies [569bc26]
+- Updated dependencies [817c237]
+  - fumadocs-core@15.6.10
+
+## 11.7.4
+
+### Patch Changes
+
+- a0148f9: Remark Include: Support copying only a section
+
+## 11.7.3
+
+### Patch Changes
+
+- 4f8f1d6: Add `vite/client` types in generated file
+- 57224f4: Support last modified time for Vite
+
+## 11.7.2
+
+### Patch Changes
+
+- e75ec55: Support last modified time for Vite
+
+## 11.7.1
+
+### Patch Changes
+
+- f8000f4: Generate config based on Next.js version
+- f45a1b6: Support Tanstack Router/Start via `createClientLoader`
+- Updated dependencies [1b0e9d5]
+  - fumadocs-core@15.6.6
+
+## 11.7.0
+
+### Minor Changes
+
+- f8a58c6: Support `preset: minimal` to disable Fumadocs specific defaults
+- e5cfa27: Stabilize Vite plugin support
+
+### Patch Changes
+
+- Updated dependencies [658fa96]
+- Updated dependencies [f8a58c6]
+  - fumadocs-core@15.6.5
+  - @fumadocs/mdx-remote@1.4.0
+
+## 11.6.11
+
+### Patch Changes
+
+- 73e07a5: bump zod to v4
+
+## 11.6.10
+
+### Patch Changes
+
+- d0f8a15: Enable `remarkNpm` by default, replace `remarkInstall` with it.
+- Updated dependencies [d0f8a15]
+- Updated dependencies [84918b8]
+- Updated dependencies [f8d1709]
+  - fumadocs-core@15.6.0
+  - @fumadocs/mdx-remote@1.3.4
+
+## 11.6.9
+
+### Patch Changes
+
+- cd86f58: Hotfix Windows EOL being ignored
+- Updated dependencies [7d1ac21]
+  - fumadocs-core@15.5.3
+
+## 11.6.8
+
+### Patch Changes
+
+- 7a45921: Add `absolutePath` and `path` properties to pages, mark `file` as deprecated
+- 1b7bc4b: Add `@types/react` to optional peer dependency to avoid version conflict in monorepos
+- 14e267b: Use custom util to parse frontmatter
+- Updated dependencies [7a45921]
+- Updated dependencies [1b7bc4b]
+  - fumadocs-core@15.5.2
+  - @fumadocs/mdx-remote@1.3.3
+
+## 11.6.7
+
+### Patch Changes
+
+- a5c283f: Support `outDir` option on `createMDX()`
+- Updated dependencies [b4916d2]
+- Updated dependencies [8738b9c]
+- Updated dependencies [a66886b]
+  - fumadocs-core@15.5.1
 
 ## 11.6.6
 
@@ -322,7 +1179,7 @@
   A `source.config.ts` is now required.
 
   ```ts
-  import { defineDocs, defineConfig } from 'fumadocs-mdx/config';
+  import { defineDocs, defineConfig } from "fumadocs-mdx/config";
 
   export const { docs, meta } = defineDocs();
 
@@ -714,7 +1571,7 @@
   Become:
 
   ```mdx
-  import img_banner from '../../public/image.png';
+  import img_banner from "../../public/image.png";
 
   <img alt="banner" src={img_banner} />
   ```
@@ -775,13 +1632,13 @@
   `fromMap` has been removed. Please use `createMDXSource` instead.
 
   ```ts
-  import { map } from '@/.map';
-  import { createMDXSource } from 'next-docs-mdx';
-  import { loader } from 'next-docs-zeta/source';
+  import { map } from "@/.map";
+  import { createMDXSource } from "next-docs-mdx";
+  import { loader } from "next-docs-zeta/source";
 
   export const { getPage, getPages, pageTree } = loader({
-    baseUrl: '/docs',
-    rootDir: 'docs',
+    baseUrl: "/docs",
+    rootDir: "docs",
     source: createMDXSource(map),
   });
   ```
@@ -795,7 +1652,7 @@
   ```js
   const withNextDocs = createNextDocs({
     mdxOptions: {
-      lastModifiedTime: 'git',
+      lastModifiedTime: "git",
     },
   });
   ```
@@ -844,7 +1701,7 @@
 
   ```ts
   const utils = fromMap(map, {
-    rootDir: 'ui',
+    rootDir: "ui",
     schema: {
       frontmatter: frontmatterSchema,
     },
@@ -857,7 +1714,7 @@
 
   This means you don't need `getPageUrl` anymore for built-in adapters, including `next-docs-mdx` and Contentlayer. It is now replaced by the `url` property from the pages array provided by your adapter.
 
-  Due to this change, your old configuration might not continues to work.
+  Due to this change, your old configuration might not continue to work.
 
   ```diff
   import { fromMap } from 'next-docs-mdx/map'
@@ -875,11 +1732,11 @@
   The `validate` options is now renamed to `schema`.
 
   ```ts
-  import { defaultSchemas, fromMap } from 'next-docs-mdx/map';
+  import { defaultSchemas, fromMap } from "next-docs-mdx/map";
 
   const utils = fromMap(map, {
-    rootDir: 'docs/ui',
-    baseUrl: '/docs/ui',
+    rootDir: "docs/ui",
+    baseUrl: "/docs/ui",
     schema: {
       frontmatter: defaultSchemas.frontmatter.extend({
         preview: z.string().optional(),
@@ -898,7 +1755,7 @@
 
   ```js
   const withNextDocs = createNextDocs({
-    rootContentPath: './content/docs',
+    rootContentPath: "./content/docs",
   });
   ```
 

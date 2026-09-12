@@ -1,31 +1,30 @@
 {
   "name": "example-python",
-  "version": "0.0.0",
+  "version": "0.0.28",
   "private": true,
   "scripts": {
-    "build": "pnpm build:docs && next build",
-    "dev": "next dev --turbo",
+    "build": "next build",
+    "dev": "next dev",
     "start": "next start",
-    "build:docs": "node ./scripts/generate-docs.mjs",
-    "python:generate": "pip3 install ./node_modules/fumadocs-python && fumapy-generate httpx"
+    "python:generate": "pip3 install ./node_modules/fumadocs-python && fumapy-generate httpx",
+    "types:check": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "fumadocs-core": "workspace:*",
-    "fumadocs-mdx": "workspace:*",
     "fumadocs-python": "workspace:*",
-    "fumadocs-ui": "workspace:*",
-    "next": "15.3.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "fumadocs-ui": "workspace:@fumadocs/base-ui@*",
+    "next": "16.3.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.8",
-    "@types/mdx": "^2.0.13",
-    "@types/node": "22.15.28",
-    "@types/react": "^19.1.6",
-    "@types/react-dom": "^19.1.5",
-    "postcss": "^8.5.4",
-    "tailwindcss": "^4.1.8",
-    "typescript": "^5.8.3"
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "26.5.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
   }
 }

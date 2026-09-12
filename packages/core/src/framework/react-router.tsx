@@ -1,12 +1,6 @@
 import { type ReactNode, useMemo } from 'react';
 import { type Framework, FrameworkProvider } from '@/framework/index';
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-  useRevalidator,
-} from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useRevalidator } from 'react-router';
 
 const framework: Framework = {
   usePathname() {
@@ -40,6 +34,22 @@ const framework: Framework = {
   },
 };
 
-export function ReactRouterProvider({ children }: { children: ReactNode }) {
-  return <FrameworkProvider {...framework}>{children}</FrameworkProvider>;
+export function ReactRouterProvider({
+  children,
+  Link: CustomLink,
+  Image: CustomImage,
+}: {
+  children: ReactNode;
+  Link?: Framework['Link'];
+  Image?: Framework['Image'];
+}) {
+  return (
+    <FrameworkProvider
+      {...framework}
+      Link={CustomLink ?? framework.Link}
+      Image={CustomImage ?? framework.Image}
+    >
+      {children}
+    </FrameworkProvider>
+  );
 }

@@ -3,7 +3,6 @@ import { Heading } from 'fumadocs-ui/components/heading';
 import { Card } from 'fumadocs-ui/components/card';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
-import { RootToggle } from 'fumadocs-ui/components/layout/root-toggle';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
@@ -21,6 +20,8 @@ import {
   InlineTOC,
 } from '@/components/preview/lazy';
 import BannerImage from '@/public/banner.png';
+import { GraphView } from '@/components/preview/lazy';
+import { buildGraph } from '@/lib/build-graph';
 
 export function heading(): ReactNode {
   return (
@@ -56,11 +57,7 @@ export function tabs(): ReactNode {
   return (
     <Wrapper>
       <div className="prose-no-margin">
-        <Tabs
-          groupId="language"
-          persist
-          items={['Javascript', 'Rust', 'Typescript']}
-        >
+        <Tabs groupId="language" persist items={['Javascript', 'Rust', 'Typescript']}>
           <Tab value="Javascript">Hello World in Javascript</Tab>
           <Tab value="Rust">Hello World in Rust</Tab>
           <Tab value="Typescript">Also works if items are not the same</Tab>
@@ -70,9 +67,7 @@ export function tabs(): ReactNode {
           <Tab value="Javascript">
             Value is shared! Try refresh and see if the value is persisted
           </Tab>
-          <Tab value="Rust">
-            Value is shared! Try refresh and see if the value is persisted
-          </Tab>
+          <Tab value="Rust">Value is shared! Try refresh and see if the value is persisted</Tab>
         </Tabs>
       </div>
     </Wrapper>
@@ -86,8 +81,7 @@ export function typeTable(): ReactNode {
         <TypeTable
           type={{
             percentage: {
-              description:
-                'The percentage of scroll position to display the roll button',
+              description: 'The percentage of scroll position to display the roll button',
               type: 'number',
               default: '0.2',
             },
@@ -114,9 +108,9 @@ export function zoomImage(): ReactNode {
 export function accordion(): ReactNode {
   return (
     <Wrapper>
-      <Accordions type="single" collapsible>
+      <Accordions>
         <Accordion id="what-is-fumadocs" title="What is Fumadocs?">
-          A framework for building documentations
+          A framework for building documentation
         </Accordion>
         <Accordion id="ux" title="What do we love?">
           We love websites with a good user experience
@@ -200,30 +194,6 @@ export function steps(): ReactNode {
   );
 }
 
-export function rootToggle(): ReactNode {
-  return (
-    <Wrapper>
-      <div className="not-prose mx-auto grid max-w-[240px] rounded-lg bg-fd-background">
-        <RootToggle
-          className="p-3"
-          options={[
-            {
-              title: 'Hello World',
-              description: 'The example item of root toggle',
-              url: '/docs/ui',
-            },
-            {
-              title: 'Other page',
-              description: 'The example item of root toggle',
-              url: '/docs/headless',
-            },
-          ]}
-        />
-      </div>
-    </Wrapper>
-  );
-}
-
 export function dynamicCodeBlock() {
   return (
     <Wrapper>
@@ -240,17 +210,26 @@ export function banner(): ReactNode {
           Be careful, Fumadocs v99 has released
         </Banner>
 
-        <Banner
-          className="z-0"
-          id="test-rainbow"
-          variant="rainbow"
-          changeLayout={false}
-        >
+        <Banner id="test-rainbow" className="z-0" variant="rainbow" changeLayout={false}>
           Using the <code>rainbow</code> variant
         </Banner>
 
-        <Banner className="z-0" id="test" changeLayout={false}>
-          Be careful, this banner can be closed
+        <Banner
+          id="test"
+          className="z-0"
+          variant="rainbow"
+          rainbowColors={[
+            'rgba(255,100,0, 0.5)',
+            'rgba(255,100,0, 0.5)',
+            'transparent',
+            'rgba(255,100,0, 0.5)',
+            'transparent',
+            'rgba(255,100,0, 0.5)',
+            'transparent',
+          ]}
+          changeLayout={false}
+        >
+          customize the <code>rainbow</code> variant
         </Banner>
       </div>
     </Wrapper>
@@ -268,4 +247,8 @@ export function githubInfo() {
       />
     </Wrapper>
   );
+}
+
+export async function graphView() {
+  return <GraphView graph={await buildGraph()} />;
 }

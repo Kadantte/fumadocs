@@ -1,17 +1,10 @@
 import { source } from '@/lib/source';
-import {
-  DocsPage,
-  DocsBody,
-  DocsTitle,
-  DocsDescription,
-} from 'fumadocs-ui/page';
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
 import { notFound } from 'next/navigation';
-import { metadataImage } from '@/lib/metadata';
-import { getMDXComponents } from '@/mdx-components';
+import { getMDXComponents } from '@/components/mdx';
+import type { Metadata } from 'next';
 
-export default async function Page(props: {
-  params: Promise<{ lang: string; slug?: string[] }>;
-}) {
+export default async function Page(props: PageProps<'/[lang]/docs/[[...slug]]'>) {
   const params = await props.params;
   const page = source.getPage(params.slug, params.lang);
   if (!page) notFound();
@@ -33,15 +26,15 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export async function generateMetadata(props: {
-  params: Promise<{ lang: string; slug?: string[] }>;
-}) {
+export async function generateMetadata(
+  props: PageProps<'/[lang]/docs/[[...slug]]'>,
+): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug, params.lang);
   if (!page) notFound();
 
-  return metadataImage.withImage(page.slugs, {
+  return {
     title: page.data.title,
     description: page.data.description,
-  });
+  };
 }

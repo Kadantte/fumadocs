@@ -1,142 +1,76 @@
-import type { BaseCollectionEntry, FileInfo, MarkdownProps } from '@/config';
-import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { MetaData, PageData, Source } from 'fumadocs-core/source';
-import type { LoadedConfig } from '@/utils/config';
+import type { StructuredData } from 'fumadocs-core/mdx-plugins/remark-structure';
+import type { TOCItemType } from 'fumadocs-core/toc';
+import type { Root } from 'mdast';
+import type { MDXComponents, MDXContent } from 'mdx/types';
 
-export interface RuntimeFile {
+export interface DocData {
+  /**
+   * Compiled MDX content (as component)
+   */
+  body: MDXContent;
+
+  /**
+   * table of contents generated from content.
+   */
+  toc: TOCItemType[];
+
+  /**
+   * structured data for document search indexing.
+   */
+  structuredData: StructuredData;
+
+  /**
+   * Raw exports from the compiled MDX file.
+   */
+  _exports: Record<string, unknown>;
+}
+
+export interface FileInfo {
+  /**
+   * virtualized path for Source API
+   */
+  path: string;
+
+  /**
+   * the file path in file system
+   */
+  fullPath: string;
+}
+
+export interface GetTextOptions {
+  /**
+   * MDX components for JSX elements in the output, only available with `output: 'function'` in `includeProcessedMarkdown`.
+   */
+  components?: MDXComponents;
+}
+
+export interface DocMethods {
+  /**
+   * file info
+   */
   info: FileInfo;
-  data: Record<string, unknown>;
+
+  /**
+   * get document as text.
+   *
+   * - `type: raw` - read the original content from file system.
+   * - `type: processed` - get the processed Markdown content, only available when `includeProcessedMarkdown` is enabled on collection config.
+   */
+  getText: (type: 'raw' | 'processed', options?: GetTextOptions) => Promise<string>;
+
+  getMDAST: () => Promise<Root>;
 }
 
-export interface AsyncRuntimeFile {
+export interface MetaMethods {
+  /**
+   * file info
+   */
   info: FileInfo;
-  data: Record<string, unknown>;
-  content: string;
-  lastModified?: Date;
 }
 
-type DocOut<Schema extends StandardSchemaV1> = Override<
-  MarkdownProps & {
-    /**
-     * Read the original content of file from file system.
-     */
-    get content(): string;
-  },
-  StandardSchemaV1.InferOutput<Schema> & BaseCollectionEntry
->;
-
-type Override<A, B> = Omit<A, keyof B> & B;
-
-type MetaOut<Schema extends StandardSchemaV1> =
-  StandardSchemaV1.InferOutput<Schema> & BaseCollectionEntry;
-
-export interface Runtime {
-  doc: <C>(files: RuntimeFile[]) => C extends {
-    type: 'doc';
-    _type: {
-      schema: infer Schema extends StandardSchemaV1;
-    };
-  }
-    ? DocOut<Schema>[]
-    : never;
-  meta: <C>(files: RuntimeFile[]) => C extends {
-    type: 'meta';
-
-    _type: {
-      schema: infer Schema extends StandardSchemaV1;
-    };
-  }
-    ? MetaOut<Schema>[]
-    : never;
-  docs: <C>(
-    docs: RuntimeFile[],
-    metas: RuntimeFile[],
-  ) => C extends {
-    type: 'docs';
-
-    docs: {
-      type: 'doc';
-      _type: {
-        schema: infer DocSchema extends StandardSchemaV1;
-      };
-    };
-
-    meta: {
-      type: 'meta';
-      _type: {
-        schema: infer MetaSchema extends StandardSchemaV1;
-      };
-    };
-  }
-    ? {
-        docs: DocOut<DocSchema>[];
-        meta: MetaOut<MetaSchema>[];
-
-        toFumadocsSource: () => Source<{
-          pageData: DocOut<DocSchema> extends PageData
-            ? DocOut<DocSchema>
-            : never;
-          metaData: MetaOut<MetaSchema> extends MetaData
-            ? MetaOut<MetaSchema>
-            : never;
-        }>;
-      }
-    : never;
-}
-
-type AsyncDocOut<Schema extends StandardSchemaV1> =
-  StandardSchemaV1.InferOutput<Schema> &
-    BaseCollectionEntry & {
-      content: string;
-      load: () => Promise<MarkdownProps>;
-    };
-
-export interface RuntimeAsync {
-  doc: <C>(
-    files: AsyncRuntimeFile[],
-    collection: string,
-    config: LoadedConfig,
-  ) => C extends {
-    type: 'doc';
-    _type: {
-      schema: infer Schema extends StandardSchemaV1;
-    };
-  }
-    ? AsyncDocOut<Schema>[]
-    : never;
-  docs: <C>(
-    docs: AsyncRuntimeFile[],
-    metas: RuntimeFile[],
-    collection: string,
-    config: LoadedConfig,
-  ) => C extends {
-    type: 'docs';
-
-    docs: {
-      type: 'doc';
-      _type: {
-        schema: infer DocSchema extends StandardSchemaV1;
-      };
-    };
-
-    meta: {
-      type: 'meta';
-      _type: {
-        schema: infer MetaSchema extends StandardSchemaV1;
-      };
-    };
-  }
-    ? {
-        docs: AsyncDocOut<DocSchema>[];
-        meta: MetaOut<MetaSchema>[];
-        toFumadocsSource: () => Source<{
-          pageData: AsyncDocOut<DocSchema> extends PageData
-            ? AsyncDocOut<DocSchema>
-            : never;
-          metaData: MetaOut<MetaSchema> extends MetaData
-            ? MetaOut<MetaSchema>
-            : never;
-        }>;
-      }
-    : never;
+export interface InternalTypeConfig {
+  /**
+   * collection name -> collection properties
+   */
+  DocData: Record<string, unknown>;
 }

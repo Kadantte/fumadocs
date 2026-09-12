@@ -1,10 +1,18 @@
 import { expect, test } from 'vitest';
-import { createGenerator } from '@/lib/base';
+import { createGenerator, createProject } from '@/lib/base';
+import { getSimpleForm } from '@/lib/get-simple-form';
+import { isVariableDeclaration, type Node } from 'typescript/unstable/ast';
+import path from 'node:path';
+import { fileURLToPath } from 'url';
 
-const generator = createGenerator();
+const generator = createGenerator({
+  cache: false,
+});
 
-test('class members', () => {
-  const out = generator.generateDocumentation(
+const relative = (s: string): string => path.resolve(fileURLToPath(new URL(s, import.meta.url)));
+
+test('class members', async () => {
+  const out = await generator.generateDocumentation(
     {
       path: 'index.ts',
       content: `
@@ -12,8 +20,8 @@ test('class members', () => {
         #name: string;
         private test: string;
         age: number;
-        
-        constructor(name: string) { 
+
+        constructor(name: string) {
             this.#name = name;
         }
     }
@@ -32,7 +40,8 @@ test('class members', () => {
             "description": "",
             "name": "test",
             "required": true,
-            "tags": {},
+            "simplifiedType": "string",
+            "tags": [],
             "type": "string",
           },
           {
@@ -40,18 +49,20 @@ test('class members', () => {
             "description": "",
             "name": "age",
             "required": true,
-            "tags": {},
+            "simplifiedType": "number",
+            "tags": [],
             "type": "number",
           },
         ],
+        "id": "index.ts-MyClass",
         "name": "MyClass",
       },
     ]
   `);
 });
 
-test('interface members', () => {
-  const out = generator.generateDocumentation(
+test('interface members', async () => {
+  const out = await generator.generateDocumentation(
     {
       path: 'index.ts',
       content: `
@@ -74,7 +85,8 @@ test('interface members', () => {
             "description": "",
             "name": "#name",
             "required": true,
-            "tags": {},
+            "simplifiedType": "string",
+            "tags": [],
             "type": "string",
           },
           {
@@ -82,12 +94,73 @@ test('interface members', () => {
             "description": "",
             "name": "age",
             "required": true,
-            "tags": {},
+            "simplifiedType": "number",
+            "tags": [],
             "type": "number",
           },
         ],
+        "id": "index.ts-MyInterface",
         "name": "MyInterface",
       },
     ]
+  `);
+});
+
+const project = await createProject({
+  tsconfigPath: relative('../tsconfig.json'),
+});
+
+function getSimpleForms(fileName: string, sourceCode: string) {
+  const out: string[] = [];
+  const loaded = project.getSourceFile(path.resolve(fileName), sourceCode);
+  if (!loaded) throw new Error(`failed to load ${fileName}`);
+  const { sourceFile, project: tsProject } = loaded;
+  const { checker } = tsProject;
+
+  function visit(node: Node) {
+    if (isVariableDeclaration(node)) {
+      const type = checker.getTypeAtLocation(node)!;
+
+      out.push(`Raw: ${node.getText()}
+Simplified: ${getSimpleForm(type, checker)}`);
+    }
+
+    node.forEachChild(visit);
+  }
+
+  visit(sourceFile);
+  return out.join('\n\n');
+}
+
+test('get simple forms', async () => {
+  const sourceCode = `
+  class MyClass {}
+
+  let x: string | number | null;
+  let y: { a: number } | (() => void);
+  let z: Array<string>;
+  let w: [string, number, "test", false];
+  let v: any;
+  let r: MyClass | undefined | null;
+`;
+
+  expect(getSimpleForms('example.ts', sourceCode)).toMatchInlineSnapshot(`
+    "Raw: x: string | number | null
+    Simplified: union
+
+    Raw: y: { a: number } | (() => void)
+    Simplified: union
+
+    Raw: z: Array<string>
+    Simplified: array
+
+    Raw: w: [string, number, "test", false]
+    Simplified: tuple
+
+    Raw: v: any
+    Simplified: any
+
+    Raw: r: MyClass | undefined | null
+    Simplified: union"
   `);
 });

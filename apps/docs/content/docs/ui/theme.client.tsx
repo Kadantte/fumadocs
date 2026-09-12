@@ -16,9 +16,7 @@ export function WidthTrigger(): ReactElement {
     >
       {enabled ? <style>{`:root { --fd-layout-width: 1400px; }`}</style> : null}
       Trigger Width:
-      <span className="ms-1.5 text-fd-muted-foreground">
-        {enabled ? '1400px' : 'default'}
-      </span>
+      <span className="ms-1.5 text-fd-muted-foreground">{enabled ? '1400px' : 'default'}</span>
     </button>
   );
 }

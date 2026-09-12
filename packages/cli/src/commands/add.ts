@@ -1,40 +1,53 @@
-import {
-  intro,
-  isCancel,
-  log,
-  multiselect,
-  outro,
-  spinner,
-} from '@clack/prompts';
-import type { OutputComponent, OutputIndex } from '@/build';
+import { autocompleteMultiselect, outro, spinner } from '@clack/prompts';
+import { isCancel } from '@/utils/prompt';
 import picocolors from 'picocolors';
-import type { Config } from '@/config';
-import { installComponent, type Resolver } from '@/utils/add/install-component';
-import { installDeps } from '@/utils/add/install-deps';
+import { UIRegistries } from '@/commands/shared';
+import { RegistryConnector } from 'fuma-cli/registry/connector';
+import { LoadedConfig } from '@/config';
+import { FumadocsComponentInstaller } from '@/registry/installer';
 
-export async function add(input: string[], resolver: Resolver, config: Config) {
-  let target = input;
+interface AddOption {
+  label: string;
+  value: Target;
+  hint?: string;
+}
+
+export interface Target {
+  name: string;
+  subRegistry?: string;
+}
+
+export async function add(input: string[], connector: RegistryConnector, config: LoadedConfig) {
+  let targets: Target[];
+  const installer = new FumadocsComponentInstaller(connector, config);
+  const subRegistry = UIRegistries[config.uiLibrary];
 
   if (input.length === 0) {
     const spin = spinner();
     spin.start('fetching registry');
-    const registry = (await resolver('_registry.json')) as
-      | OutputIndex[]
-      | undefined;
-    spin.stop(picocolors.bold(picocolors.greenBright('registry fetched')));
 
-    if (!registry) {
-      log.error(`Failed to fetch '_registry.json' file from registry`);
-      throw new Error(`Failed to fetch registry`);
+    async function scan(subRegistry?: string, prefix?: string): Promise<AddOption[]> {
+      const info = await connector.fetchRegistryInfo(subRegistry);
+
+      return info.indexes.map((item) => ({
+        label: `${prefix ? `${picocolors.bold(prefix)} - ` : ''}${item.title ?? item.name}`,
+        value: { name: item.name, subRegistry },
+        hint: item.description,
+      }));
     }
 
-    const value = await multiselect({
+    const groups = await Promise.all([
+      scan(undefined, 'common'),
+      scan('fumadocs/sanity', 'sanity'),
+      scan('fumadocs/openapi', 'openapi'),
+      scan('fumadocs/api-docs', 'api-docs'),
+      scan(subRegistry, 'ui'),
+    ]);
+
+    spin.stop(picocolors.bold(picocolors.greenBright('registry fetched')));
+    const value = await autocompleteMultiselect({
       message: 'Select components to install',
-      options: registry.map((item) => ({
-        label: item.name,
-        value: item.name,
-        hint: item.description,
-      })),
+      options: groups.flat().sort((a, b) => a.label.localeCompare(b.label)),
     });
 
     if (isCancel(value)) {
@@ -42,39 +55,18 @@ export async function add(input: string[], resolver: Resolver, config: Config) {
       return;
     }
 
-    target = value;
-  }
-
-  await install(target, resolver, config);
-}
-
-export async function install(
-  target: string[],
-  resolver: Resolver,
-  config: Config,
-) {
-  const outputs: OutputComponent[] = [];
-
-  for (const name of target) {
-    intro(
-      picocolors.bold(
-        picocolors.inverse(picocolors.cyanBright(`Add Component: ${name}`)),
+    targets = value;
+  } else {
+    targets = await Promise.all(
+      input.map(async (item) =>
+        (await connector.hasComponent(item)) ? { name: item } : { subRegistry, name: item },
       ),
     );
-
-    const output = await installComponent(name, resolver, config);
-    if (!output) {
-      log.error(`Failed to install ${name}: not found`);
-      continue;
-    }
-
-    outro(picocolors.bold(picocolors.greenBright(`${name} installed`)));
-    outputs.push(output);
   }
 
-  intro(picocolors.bold('New Dependencies'));
-
-  await installDeps(outputs);
+  for (const target of targets) {
+    await installer.installInteractive(target.name, target.subRegistry);
+  }
 
   outro(picocolors.bold(picocolors.greenBright('Successful')));
 }

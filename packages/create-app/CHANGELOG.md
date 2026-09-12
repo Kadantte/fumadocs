@@ -1,4 +1,602 @@
+## create-fumadocs-app@16.2.0
+
+### Search providers and shared CLI features
+
+`--search` accepts `algolia`, `typesense` and `mixedbread` in addition to `orama` and `orama-cloud`.
+
+Search, linter, OG image and Ask AI options are now applied by the features of `@fumadocs/cli`, the same code that configures them on an existing app, instead of template plugins. `create-fumadocs-versions` pins the versions of the new search dependencies.
+
+### CLIs on `cac`
+
+The CLIs are now built on [cac](https://github.com/cacjs/cac).
+
+## create-fumadocs-app@16.1.26
+
+### Add `--yes` flag for non-interactive usage
+
+`create-fumadocs-app -y` (`--yes`) skips every prompt and uses the default for options you didn't pass, so scripts and AI coding agents can scaffold a project without a TTY:
+
+```bash
+npx create-fumadocs-app@latest my-docs --template +next+fuma-docs-mdx --install --yes
+```
+
+Previously this required setting `CI=1`. In `--yes` mode, a non-empty target directory fails instead of prompting for deletion.
+
+## create-fumadocs-app@16.1.25
+
+### Replace ts-morph with oxc-parser
+
+Template transforms (routes, prerender config, `RootProvider` search dialog, AI chat layout) now parse files with `oxc-parser` and edit the source text in place, instead of `ts-morph` and the TypeScript 6 compiler it bundles. Edits preserve the original formatting, including trailing commas.
+
+## create-fumadocs-app@16.1.24
+
+### Replace `cnfast` with `cn`
+
+Internal refactor only.
+
+## create-fumadocs-app@16.1.10
+
+### Replace Orama with ZBSearch, zero-config i18n search
+
+The built-in search engine moved from `@orama/orama` to [ZBSearch](https://www.zbsearch.dev), a near drop-in successor. All module paths and APIs are unchanged, and search now works with **every language out of the box**: the new default `multilingual` mode uses Unicode word segmentation, so i18n search needs zero config.
+
+```ts
+import { createFromSource } from 'fumadocs-core/search/server';
+
+// no `localeMap`, no `@orama/tokenizers`, CJK included
+export const { GET } = createFromSource(source);
+```
+
+All locales now share a single search database — results are filtered by the locale of your pages at query time. Same for static mode:
+
+```ts
+import { staticClient } from 'fumadocs-core/search/client/orama-static';
+
+const client = staticClient({ locale });
+```
+
+### Renames
+
+- `oramaStaticClient` → `staticClient` (old name kept as deprecated alias)
+- `initOrama` → `initDB`, it now creates a ZBSearch instance and is optional — the exported data restores the tokenizer on load
+
+### Deprecated
+
+- `localeMap` is no longer needed. It still works for language-specific stemming/stop-words and keeps the legacy per-locale databases when specified.
+
+### Notes for advanced usage
+
+- `language`, `components`, `plugins` and `search` options are now typed against ZBSearch instead of `@orama/orama` — custom tokenizers or plugins written for Orama must be swapped to their ZBSearch equivalents.
+- The exported static search data is now a ZBSearch database (i18n exports became a single unified database), so server and client should be on the same fumadocs-core version.
+- `@orama/orama` and `@orama/tokenizers` can be removed from your dependencies unless you use them directly. Orama **Cloud** integrations (`fumadocs-core/search/orama-cloud`) are unaffected.
+
+## create-fumadocs-app@16.1.8
+
+### Fix React Router template
+
+## create-fumadocs-app@16.1.7
+
+### Improve hints for create app CLI
+
+Show details for pros & cons of each framework.
+
+## create-fumadocs-app@16.1.2
+
+### Add Astro framework support
+
+Add Astro as a supported framework with React islands, including framework providers, an example app, create-app template support, search integration, OG image generation, and documentation.
+
+## create-fumadocs-app@16.1.0
+
+### Default to Base UI
+
+Internal packages & templates now use Base UI rather than Radix UI.
+
 # create-next-docs-app
+
+## 16.0.124
+
+## 16.0.123
+
+## 16.0.122
+
+## 16.0.121
+
+## 16.0.120
+
+## 16.0.119
+
+## 16.0.118
+
+## 16.0.117
+
+## 16.0.116
+
+## 16.0.115
+
+## 16.0.114
+
+## 16.0.113
+
+## 16.0.112
+
+## 16.0.111
+
+## 16.0.110
+
+## 16.0.109
+
+## 16.0.108
+
+## 16.0.107
+
+## 16.0.106
+
+## 16.0.105
+
+## 16.0.104
+
+## 16.0.103
+
+## 16.0.102
+
+### Patch Changes
+
+- Updated dependencies [2d22086]
+  - @fumadocs/cli@1.3.10
+
+## 16.0.101
+
+### Patch Changes
+
+- Updated dependencies [af7ee2d]
+  - @fumadocs/cli@1.3.9
+
+## 16.0.100
+
+## 16.0.99
+
+## 16.0.98
+
+## 16.0.97
+
+## 16.0.96
+
+## 16.0.95
+
+### Patch Changes
+
+- f51b849: update Waku template
+- Updated dependencies [71c15fd]
+  - @fumadocs/cli@1.3.8
+
+## 16.0.94
+
+## 16.0.93
+
+## 16.0.92
+
+### Patch Changes
+
+- 2d8f596: fix `npm pack` skipping nested `node_modules`
+- Updated dependencies [2d8f596]
+  - @fumadocs/cli@1.3.7
+
+## 16.0.91
+
+### Patch Changes
+
+- 690ddb9: bundle more deps
+- Updated dependencies [690ddb9]
+  - @fumadocs/cli@1.3.6
+
+## 16.0.90
+
+## 16.0.89
+
+### Patch Changes
+
+- 7c59264: Adopt Fuma CLI
+- Updated dependencies [7c59264]
+  - @fumadocs/cli@1.3.5
+
+## 16.0.88
+
+## 16.0.87
+
+## 16.0.86
+
+### Patch Changes
+
+- 1a84b96: hotfix cwd for default config
+- Updated dependencies [1a84b96]
+  - @fumadocs/cli@1.3.4
+
+## 16.0.85
+
+### Patch Changes
+
+- a77a4ad: Support other React.js frameworks for AI chat
+- Updated dependencies [3ff78c9]
+  - @fumadocs/cli@1.3.3
+
+## 16.0.84
+
+### Patch Changes
+
+- 43cd8db: Support Oxlint as linter
+
+## 16.0.83
+
+## 16.0.82
+
+### Patch Changes
+
+- 3d4bc07: fix templates
+
+## 16.0.81
+
+### Patch Changes
+
+- d050370: include shared.ts in all templates
+
+## 16.0.80
+
+## 16.0.79
+
+### Patch Changes
+
+- Updated dependencies [823d880]
+  - @fumadocs/cli@1.3.2
+
+## 16.0.78
+
+## 16.0.77
+
+## 16.0.76
+
+## 16.0.75
+
+### Patch Changes
+
+- Updated dependencies [e201942]
+  - @fumadocs/cli@1.3.1
+
+## 16.0.74
+
+### Patch Changes
+
+- Updated dependencies [0ddaa8a]
+  - @fumadocs/cli@1.3.0
+
+## 16.0.73
+
+## 16.0.72
+
+### Patch Changes
+
+- a52d30f: fix default template
+
+## 16.0.71
+
+### Patch Changes
+
+- e7ab329: Add AI chat option for Next.js
+- Updated dependencies [42e17a4]
+- Updated dependencies [b2191f5]
+  - @fumadocs/cli@1.2.6
+
+## 16.0.70
+
+## 16.0.69
+
+### Patch Changes
+
+- 2065a32: update templates
+
+## 16.0.68
+
+## 16.0.67
+
+## 16.0.66
+
+## 16.0.65
+
+## 16.0.64
+
+## 16.0.63
+
+### Patch Changes
+
+- 3140798: fix Takumi plugin
+
+## 16.0.62
+
+### Patch Changes
+
+- 5453502: use Shiki.js v4
+
+## 16.0.61
+
+## 16.0.60
+
+## 16.0.59
+
+### Patch Changes
+
+- d6b271f: update template
+
+## 16.0.58
+
+## 16.0.57
+
+## 16.0.56
+
+## 16.0.55
+
+## 16.0.54
+
+### Patch Changes
+
+- 0e48cbe: Force CLI update
+
+## 16.0.53
+
+## 16.0.52
+
+## 16.0.51
+
+## 16.0.50
+
+## 16.0.49
+
+### Patch Changes
+
+- 8d63b55: fix Waku template
+- c22f6ee: bump tsdown
+
+## 16.0.48
+
+## 16.0.47
+
+## 16.0.45
+
+## 16.0.44
+
+## 16.0.43
+
+## 16.0.42
+
+## 16.0.41
+
+## 16.0.40
+
+## 16.0.39
+
+## 16.0.38
+
+## 16.0.37
+
+## 16.0.36
+
+### Patch Changes
+
+- 2f6391b: hotfix wrong dep version
+
+## 16.0.35
+
+## 16.0.34
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+
+## 16.0.33
+
+## 16.0.32
+
+## 16.0.31
+
+## 16.0.30
+
+## 16.0.29
+
+## 16.0.28
+
+## 16.0.27
+
+## 16.0.26
+
+## 16.0.25
+
+### Patch Changes
+
+- 07fb964: update Next.js ESLint config
+
+## 16.0.24
+
+## 16.0.23
+
+## 16.0.22
+
+## 16.0.21
+
+## 16.0.20
+
+## 16.0.19
+
+## 16.0.18
+
+## 16.0.17
+
+## 16.0.16
+
+## 16.0.15
+
+## 16.0.14
+
+## 16.0.13
+
+## 16.0.12
+
+## 16.0.11
+
+## 16.0.10
+
+## 16.0.9
+
+## 16.0.8
+
+## 16.0.7
+
+## 16.0.6
+
+### Patch Changes
+
+- 3668baf: bump deps & update templates
+- eece4f8: Support Tanstack Start SPA
+
+## 16.0.5
+
+## 16.0.4
+
+### Patch Changes
+
+- 33c4129: Support `CI` environment variable, remove negatives options from CLI usage
+
+## 16.0.3
+
+### Patch Changes
+
+- 4500ce0: Use plugins for `create()` to configure linters & app dir
+- e051a7f: Support Biome for other templates
+- b171be1: Support `CI` environment variable, remove negatives options from CLI usage
+- 0ac2f82: Use smarter AST transform for modifying app configs
+- 0ac2f82: fix type info lost on `create`
+
+## 16.0.2
+
+### Patch Changes
+
+- 91d7509: Support Orama Cloud template
+- d20e90a: Add SPA template for React Router
+
+## 16.0.1
+
+## 16.0.0
+
+### Patch Changes
+
+- 4c535f3: fix outdated Tanstack Start template
+- 5210f18: Support Fumadocs 16 in `peerDependencies`.
+
+## 15.8.4
+
+## 15.8.3
+
+### Patch Changes
+
+- a3a14e7: Bump deps
+
+## 15.8.2
+
+## 15.8.1
+
+### Patch Changes
+
+- eaf06c4: [Next.js] configure `llms-full.txt` and og image generation by default
+
+## 15.8.0
+
+## 15.7.13
+
+## 15.7.12
+
+## 15.7.11
+
+### Patch Changes
+
+- 5a763d6: Support choosing between Biome and ESLint
+
+## 15.7.10
+
+## 15.7.9
+
+## 15.7.8
+
+### Patch Changes
+
+- be40967: Fixed imports for the React Router template.
+
+## 15.7.7
+
+## 15.7.6
+
+## 15.7.5
+
+## 15.7.4
+
+## 15.7.3
+
+## 15.7.2
+
+## 15.7.1
+
+## 15.7.0
+
+## 15.6.12
+
+## 15.6.11
+
+## 15.6.10
+
+## 15.6.9
+
+## 15.6.8
+
+### Patch Changes
+
+- 9f67fb8: Support `--no-git` option in CLI
+- dd4d8fc: Support Waku template
+
+## 15.6.7
+
+## 15.6.6
+
+### Patch Changes
+
+- 526fd82: Update Tanstack Start & React Router templates to use Fumadocs MDX
+
+## 15.6.5
+
+### Patch Changes
+
+- 619806d: Fix Vite and Tanstack Router configuration warnings
+
+## 15.6.4
+
+### Patch Changes
+
+- a375da3: support passing options
+- a375da3: Update templates
+
+## 15.6.3
+
+## 15.6.2
+
+## 15.6.1
+
+## 15.6.0
+
+## 15.5.5
+
+## 15.5.4
+
+## 15.5.3
+
+## 15.5.2
+
+## 15.5.1
 
 ## 15.5.0
 

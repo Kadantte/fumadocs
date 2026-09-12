@@ -4,21 +4,13 @@
  * You may copy and modify the code
  */
 import type { Context, Meta } from '@content-collections/core';
-import {
-  compileMDX as baseCompileMDX,
-  type Options as MDXOptions,
-} from '@content-collections/mdx';
+import { compileMDX as baseCompileMDX, type Options as MDXOptions } from '@content-collections/mdx';
 import type { StructuredData } from 'fumadocs-core/mdx-plugins';
 import * as Plugins from 'fumadocs-core/mdx-plugins';
 import { z, z as Zod } from 'zod';
-import {
-  resolvePlugin,
-  resolvePlugins,
-  type ResolvePlugins,
-} from '@/resolve-plugins';
+import { resolvePlugin, resolvePlugins, type ResolvePlugins } from '@/resolve-plugins';
 
-export interface TransformOptions
-  extends Omit<MDXOptions, 'remarkPlugins' | 'rehypePlugins'> {
+export interface TransformOptions extends Omit<MDXOptions, 'remarkPlugins' | 'rehypePlugins'> {
   remarkPlugins?: ResolvePlugins;
   rehypePlugins?: ResolvePlugins;
 
@@ -55,7 +47,7 @@ interface BaseDoc {
  * We need to convert interface types to object types.
  *
  * Otherwise, `T extends Serializable? true : false` gives us `false`.
- * Because interface types cannot extend a union type, but `Serializable` is.
+ * Because interface types cannot extend a union type like `Serializable`.
  */
 type InterfaceToObject<T> = T extends object
   ? {
@@ -106,10 +98,7 @@ export async function transformMDX<D extends BaseDoc>(
           cwd: process.cwd(),
           ...rest,
           rehypePlugins: resolvePlugins(
-            (plugins) => [
-              resolvePlugin(Plugins.rehypeCode, rehypeCodeOptions),
-              ...plugins,
-            ],
+            (plugins) => [resolvePlugin(Plugins.rehypeCode, rehypeCodeOptions), ...plugins],
             rest.rehypePlugins,
           ),
           remarkPlugins: resolvePlugins(
@@ -160,7 +149,7 @@ export const frontmatterSchema = z.object({
   full: z.boolean().optional(),
 
   // Fumadocs OpenAPI generated
-  _openapi: z.object({}).passthrough().optional(),
+  _openapi: z.record(z.string(), z.any()).optional(),
 });
 
 export function createDocSchema(z: typeof Zod) {
@@ -170,7 +159,7 @@ export function createDocSchema(z: typeof Zod) {
     icon: z.string().optional(),
     full: z.boolean().optional(),
     // Fumadocs OpenAPI generated
-    _openapi: z.record(z.any()).optional(),
+    _openapi: z.record(z.string(), z.any()).optional(),
   };
 }
 
